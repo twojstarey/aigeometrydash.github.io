@@ -1635,7 +1635,6 @@ function drawG(){
   }
 
   if(gMode==='ship' || gMode==='wave' || shipTransAnim > 0){
-    gCtx2.fillStyle='#000'; gCtx2.fillRect(0, 0, logicalW, animCeilY);
     if(ok(IM.ground)){
       const off=-(gCamX%GROUND_TS)-GROUND_TS;
       gCtx2.save();
@@ -1643,7 +1642,7 @@ function drawG(){
       for(let tx=off;tx<logicalW+GROUND_TS;tx+=GROUND_TS)
         gCtx2.drawImage(IM.ground, tx, -animCeilY, GROUND_TS, GROUND_TS);
       gCtx2.restore();
-      // Tint ceiling ground — must be after restore() so we're back in normal space
+      // Tint ceiling ground with multiply (same as floor)
       gCtx2.globalCompositeOperation='multiply';
       gCtx2.fillStyle=rgbToHex(Math.round(gGndCol[0]),Math.round(gGndCol[1]),Math.round(gGndCol[2]));
       gCtx2.fillRect(0, 0, logicalW, animCeilY);
@@ -1652,6 +1651,8 @@ function drawG(){
       gCtx2.fillStyle=rgbToHex(Math.round(gGndCol[0]),Math.round(gGndCol[1]),Math.round(gGndCol[2]));
       gCtx2.fillRect(0, animCeilY - GROUND_TS, logicalW, GROUND_TS);
     }
+    // Black fill above ceiling tiles (covers area above the ground strip)
+    gCtx2.fillStyle='#000'; gCtx2.fillRect(0, 0, logicalW, animCeilY - GROUND_TS);
   }
 
   curLv.objs.forEach(obj=>{
