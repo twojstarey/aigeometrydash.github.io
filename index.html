@@ -141,6 +141,9 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
     <button class="tb" onclick="rotSel(-15)">◁Q</button>
     <button class="tb" onclick="rotSel(15)">E▷</button>
     <div class="sep"></div>
+    <button class="tb" onclick="doUndo()" title="Ctrl+Z">↩ UNDO</button>
+    <button class="tb" onclick="doRedo()" title="Ctrl+Y">↪ REDO</button>
+    <div class="sep"></div>
     <button class="tb" style="border-color:#2ECC40;color:#2ECC40" onclick="saveLevel()">💾 SAVE</button>
     <button class="tb" style="border-color:#3AF;color:#3AF"       onclick="testLevel()">▶ TEST</button>
     
@@ -164,6 +167,13 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
     <div class="ep-row"><span>Opacity (0-1):</span> <input type="number" id="trig-opac" step="0.1" min="0" max="1"></div>
     <div class="ep-row"><span>Touch Trigger:</span> <input type="checkbox" id="trig-touch"></div>
   </div>
+  <div id="gtrig-menu" class="editor-popup">
+    <button class="ep-close" onclick="closeActiveMenu()">X</button>
+    <h3>Ground Trigger</h3>
+    <div class="ep-row"><span>Color:</span> <input type="color" id="gtrig-col"></div>
+    <div class="ep-row"><span>Fade Time (s):</span> <input type="number" id="gtrig-fade" step="0.1" min="0"></div>
+    <div class="ep-row"><span>Touch Trigger:</span> <input type="checkbox" id="gtrig-touch"></div>
+  </div>
   <div id="deco-menu" class="editor-popup">
     <button class="ep-close" onclick="closeActiveMenu()">X</button>
     <h3>Decoration Color</h3>
@@ -181,6 +191,10 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
       <div id="bg-row">
         <label>Level Start Background Color</label>
         <input id="bg-color-inp" type="color" value="#1a2a6c" oninput="setBgC(this.value)">
+      </div>
+      <div id="bg-row" style="margin-top:8px;">
+        <label>Level Start Ground Color</label>
+        <input id="ground-color-inp" type="color" value="#3a6020" oninput="setGroundC(this.value)">
       </div>
       <div id="music-row">
         <label>Music</label>
@@ -240,7 +254,8 @@ const SRC={
   cube:'https://i.imgur.com/LWmt7mD.png',
   ship:'https://i.imgur.com/CLUsNln.png',
   wave:'https://i.imgur.com/tvA1vnp.png',
-  ground:'https://static.wikia.nocookie.net/038c4010-b531-4b8a-bd7b-4775635e4668/scale-to-width/755',
+  ground:'https://i.imgur.com/HCFkqKg.png',
+  ground_trigger:'https://i.imgur.com/55QWy7m.png',
   spike:'https://i.imgur.com/9DwKJb2.png',
   jump_pad:'https://i.imgur.com/H7VvNeF.png',
   block1:'https://i.imgur.com/W383yv2.png',
@@ -300,6 +315,7 @@ const TYPES=[
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
   {id:'wave_port',lbl:'Wave\nPortal',img:'wave_port',w:1.4,  h:2.7, kind:'pwave', solid:false},
   {id:'bg_trigger',lbl:'BG\nTrigger',img:'bg_trigger',w:1,   h:1,   kind:'trigger',solid:false},
+  {id:'ground_trigger',lbl:'Ground\nTrigger',img:'ground_trigger',w:1,h:1,kind:'gtrigger',solid:false},
   {id:'shallow_slope',lbl:'Shallow\nSlope',img:'shallow_slope',w:1,h:1,kind:'slope',solid:true},
 ];
 function td(id){return TYPES.find(t=>t.id===id)||TYPES[0];}
@@ -357,8 +373,13 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 let bgColor='#1a2a6c';
 function setBgC(v){bgColor=v;$('bg-color-inp').value=v;}
 
+let edGroundColor='#3a6020';
+function setGroundC(v){edGroundColor=v;$('ground-color-inp').value=v;}
+
 let gBgCol =[26,42,108], gBgTarget =[26,42,108], gBgFadeT = 0, gBgFadeDur = 0;
 let gBgOpac = 1, gBgTargetOpac = 1, gBgStartOpac = 1;
+// Ground color state (for ground trigger)
+let gGndCol = [58,96,32], gGndTarget = [58,96,32], gGndFadeT = 0, gGndFadeDur = 0, gGndStartCol = [58,96,32];
 
 function handleLocalMusicInput(event) {
     const files = event.target.files;
@@ -489,15 +510,38 @@ let sboxX=0,sboxY=0,sboxW=0,sboxH=0;
 let szBase=null,szOrig=[];
 let selScale=1,showHB=false,edRun=false,edListened=false,escOp=false;
 
+// ── UNDO / REDO ──
+let undoStack=[], redoStack=[];
+function pushUndo(){
+  undoStack.push(JSON.stringify(edObjs));
+  if(undoStack.length>80) undoStack.shift();
+  redoStack=[];
+}
+function doUndo(){
+  if(!undoStack.length) return;
+  redoStack.push(JSON.stringify(edObjs));
+  edObjs=JSON.parse(undoStack.pop());
+  selObjs=[];
+}
+function doRedo(){
+  if(!redoStack.length) return;
+  undoStack.push(JSON.stringify(edObjs));
+  edObjs=JSON.parse(redoStack.pop());
+  selObjs=[];
+}
+
 function newLevel(){
   edObjs=[];edIdx=-1;$('ed-name').value='My Level';
-  bgColor='#1a2a6c';$('bg-color-inp').value=bgColor;openEditor();
+  bgColor='#1a2a6c';$('bg-color-inp').value=bgColor;
+  edGroundColor='#3a6020';$('ground-color-inp').value=edGroundColor;
+  openEditor();
   attempts = 0; 
 }
 function editLevel(i){
   const {levels} = getLS();
   const lv=levels[i];edObjs=lv.objs.map(o=>({...o}));edIdx=i;
   bgColor=lv.bg||'#1a2a6c';$('bg-color-inp').value=bgColor;
+  edGroundColor=lv.groundColor||'#3a6020';$('ground-color-inp').value=edGroundColor;
   $('ed-name').value=lv.name;hide('levels-screen');openEditor();
   attempts = 0; 
 }
@@ -507,6 +551,7 @@ function openEditor(){
   camX=200;camY=GROUND_Y-320;camZoom=1;
   selObjs=[];lmbDown=false;lmbDrag=false;lmbOnCanvas=false;isRmbDown=false;isMmbDown=false;objDrag=false;
   selScale=1;szBase=null;
+  undoStack=[]; redoStack=[];
   setTool('place');buildPanel();initEd();
   edRun=true;requestAnimationFrame(edLoop);
 
@@ -576,6 +621,12 @@ function openActiveMenu() {
         $('trig-touch').checked = !!o.bgTouch;
         show('trig-menu','flex');
         activeMenu = 'trig-menu';
+    } else if (o.typeId === 'ground_trigger') {
+        $('gtrig-col').value = o.gtCol || '#3a5520';
+        $('gtrig-fade').value = o.gtFade !== undefined ? o.gtFade : 0.5;
+        $('gtrig-touch').checked = !!o.gtTouch;
+        show('gtrig-menu','flex');
+        activeMenu = 'gtrig-menu';
     } else if (td(o.typeId).isDeco) {
         $('deco-col').value = o.color || '#ffffff';
         show('deco-menu', 'flex');
@@ -594,6 +645,15 @@ function bindTrigInputs(){['trig-col','trig-fade','trig-opac','trig-touch'].forE
       if(id==='trig-fade') o.bgFade = parseFloat(e.target.value);
       if(id==='trig-opac') o.bgOpac = parseFloat(e.target.value);
       if(id==='trig-touch') o.bgTouch = e.target.checked;
+    });
+  });
+  ['gtrig-col','gtrig-fade','gtrig-touch'].forEach(id=>{
+    $(id).addEventListener('input',e=>{
+      if(selObjs.length!==1 || selObjs[0].typeId !== 'ground_trigger') return;
+      const o = selObjs[0];
+      if(id==='gtrig-col') o.gtCol = e.target.value;
+      if(id==='gtrig-fade') o.gtFade = parseFloat(e.target.value);
+      if(id==='gtrig-touch') o.gtTouch = e.target.checked;
     });
   });
   $('deco-col').addEventListener('input', e => {
@@ -636,7 +696,7 @@ function edMD(e){
   e.preventDefault();if(!edRun||escOp)return;
   if(e.button===2){ 
     lmbDown=false; isRmbDown=true;
-    const {sx,sy} = gSXY(e); const wp=s2w(sx,sy); deleteAt(wp.x,wp.y);
+    const {sx,sy} = gSXY(e); const wp=s2w(sx,sy); pushUndo(); deleteAt(wp.x,wp.y);
     return;
   }
   if(e.button===1){ isMmbDown=true; return; }
@@ -701,7 +761,7 @@ function edMU(e){
     const wd=lmbDrag,ws=lmbShift;
     const wp=s2w(lmbSX,lmbSY);
     if(!wd&&!ws&&edRun&&!escOp){
-      if(edTool==='place')placeObj(wp.x,wp.y);
+      if(edTool==='place'){pushUndo();placeObj(wp.x,wp.y);}
       else if(edTool==='select'){
         const hit=getAt(wp.x,wp.y);
         if(hit){
@@ -786,8 +846,12 @@ function edKey(e){
   if(e.target.tagName==='INPUT')return;
   const step=e.shiftKey?4:TILE;
   
+  if(e.ctrlKey && (e.key==='z'||e.key==='Z')) { doUndo(); e.preventDefault(); return; }
+  if(e.ctrlKey && (e.key==='y'||e.key==='Y')) { doRedo(); e.preventDefault(); return; }
+
   if(e.ctrlKey && (e.key==='d'||e.key==='D')) { 
     if(selObjs.length > 0){
+      pushUndo();
       const newSels=[];
       selObjs.forEach(o=>{
         const no={...o, x: o.x+TILE, y: o.y};
@@ -818,7 +882,7 @@ function edKey(e){
         if(e.key==='w'||e.key==='W'||e.key==='ArrowUp')movSel(0,-step);
         if(e.key==='s'||e.key==='S'||e.key==='ArrowDown')movSel(0,step);
     }
-    if(e.key==='Delete'||e.key==='Backspace')delSel();
+    if(e.key==='Delete'||e.key==='Backspace'){pushUndo();delSel();}
   }
 }
 function movSel(dx,dy){selObjs.forEach(o=>{o.x+=dx;o.y+=dy;});}
@@ -879,7 +943,7 @@ function updTrigUI() {
     closeActiveMenu(); 
     
     if(b) {
-      if(c === 1 && (tId === 'bg_trigger' || type.isDeco)) b.style.display = 'block';
+      if(c === 1 && (tId === 'bg_trigger' || tId === 'ground_trigger' || type.isDeco)) b.style.display = 'block';
       else b.style.display = 'none';
     }
   }
@@ -908,6 +972,11 @@ function drawEd(){
   const gsc=w2s(0,GROUND_Y);
   const gsy=gsc.y;
   const tW=GROUND_TS*camZoom;
+  // Compute editor ground preview color: use first ground_trigger color if any exist, else edGroundColor
+  let edGndPreview = edGroundColor;
+  const firstGTrig = edObjs.find(o => o.typeId === 'ground_trigger' && o.gtCol);
+  if(firstGTrig) edGndPreview = firstGTrig.gtCol;
+
   edCtx.fillStyle='#000';
   edCtx.fillRect(0,gsy,W,H);
   if(ok(IM.ground)){
@@ -915,8 +984,13 @@ function drawEd(){
     for(let tx=sx0;tx<W+tW;tx+=tW){
       edCtx.drawImage(IM.ground,tx,gsy,tW,tW);
     }
+    // Preview ground color tint in editor
+    edCtx.globalCompositeOperation='multiply';
+    edCtx.fillStyle=edGndPreview;
+    edCtx.fillRect(0,gsy,W,H);
+    edCtx.globalCompositeOperation='source-over';
   } else {
-    edCtx.fillStyle='#3a5520';edCtx.fillRect(0,gsy,W,tW);
+    edCtx.fillStyle=edGndPreview;edCtx.fillRect(0,gsy,W,tW);
   }
   edCtx.strokeStyle='rgba(255,220,0,.55)';edCtx.lineWidth=2;edCtx.setLineDash([7,5]);
   edCtx.beginPath();edCtx.moveTo(0,gsy);edCtx.lineTo(W,gsy);edCtx.stroke();
@@ -1007,7 +1081,7 @@ function drawEd(){
 
 function saveLevel(){
   const name=$('ed-name').value.trim()||'My Level';
-  const lv={name,bg:bgColor,objs:edObjs.map(o=>({...o}))};
+  const lv={name,bg:bgColor,groundColor:edGroundColor,objs:edObjs.map(o=>{const c={...o};delete c.activated;return c;})};
   const {levels, music} = getLS(); 
   if(edIdx>=0)levels[edIdx]=lv;else{levels.push(lv);edIdx=levels.length-1;}
   setLS({levels: levels, music: music}); 
@@ -1038,7 +1112,10 @@ function updateAttemptsDisplay() {
 function startGame(lv,fe){
   edRun=false;hide('menu');hide('editor');show('game','block');
   hide('win-screen');
-  curLv=lv;fromEd=fe;bgColor=lv.bg||'#1a2a6c';
+  curLv=lv;fromEd=fe;
+  bgColor = lv.bg || '#1a2a6c';
+  const bgInp = $('bg-color-inp');
+  if(bgInp) bgInp.value = bgColor;
   $('g-title').textContent=lv.name;
   hbx2=false;gMode='cube';dead=false;won=false;jHeld=false;jPrev=false;jumpBuf=0;orbAnims=[];
   deathParticles=[]; deathWave=0; respawnTimer=0;
@@ -1053,9 +1130,11 @@ function startGame(lv,fe){
   
   curLv.objs.forEach(o=>{ o.activated=false; });
   let baseCol = hexToRgb(bgColor);
-  gBgCol =[26,42,108]; gBgTarget =[...baseCol];
+  gBgCol =[...baseCol]; gBgTarget =[...baseCol];
   gBgFadeT = 0; gBgFadeDur = 0;
   gBgOpac = 1; gBgStartOpac = 1; gBgTargetOpac = 1;
+  const initGnd = hexToRgb(lv.groundColor||'#3a6020');
+  gGndCol=[...initGnd]; gGndTarget=[...initGnd]; gGndFadeT=0; gGndFadeDur=0; gGndStartCol=[...initGnd];
 
   orbSt=lv.objs.filter(o=>o.typeId==='orb').map(o=>({...o,used:false}));
   resetPl(); 
@@ -1118,8 +1197,10 @@ function respawn(){
   initAudio();
 
   let baseCol = hexToRgb(bgColor);
-  gBgCol =[26,42,108]; gBgTarget =[...baseCol]; gBgFadeT = 0; gBgFadeDur = 0;
+  gBgCol =[...baseCol]; gBgTarget =[...baseCol]; gBgFadeT = 0; gBgFadeDur = 0;
   gBgOpac = 1; gBgStartOpac = 1; gBgTargetOpac = 1;
+  const initGnd2 = hexToRgb(curLv.groundColor||'#3a6020');
+  gGndCol=[...initGnd2]; gGndTarget=[...initGnd2]; gGndFadeT=0; gGndFadeDur=0; gGndStartCol=[...initGnd2];
   curLv.objs.forEach(o=>{ o.activated=false; });
   lastT=performance.now();gRun=true;gAF=requestAnimationFrame(gLoop);
   
@@ -1209,6 +1290,11 @@ function updateG(dt){
     if(!window.gBgStartCol) window.gBgStartCol =[...gBgCol];
     for(let i=0; i<3; i++) gBgCol[i] = lerp(window.gBgStartCol[i], gBgTarget[i], p);
     gBgOpac = lerp(gBgStartOpac, gBgTargetOpac, p);
+  }
+  if(gGndFadeDur > 0) {
+    gGndFadeT += dt;
+    let p = Math.min(1, gGndFadeT / gGndFadeDur);
+    for(let i=0; i<3; i++) gGndCol[i] = lerp(gGndStartCol[i], gGndTarget[i], p);
   }
 
   if(gMode==='cube'){
@@ -1320,6 +1406,24 @@ function updateG(dt){
         continue; 
     }
 
+    if(t.kind==='gtrigger' && obj.typeId==='ground_trigger' && !obj.activated) {
+        let triggerActivated = false;
+        if(obj.gtTouch) {
+            if(dx <= hw + pRedHW && dy <= hh + pRedHH) triggerActivated = true;
+        } else {
+            if(player.x >= obj.x) triggerActivated = true;
+        }
+        if(triggerActivated) {
+            obj.activated = true;
+            gGndStartCol = [...gGndCol];
+            gGndTarget = hexToRgb(obj.gtCol || '#3a6020');
+            gGndFadeDur = parseFloat(obj.gtFade) || 0;
+            gGndFadeT = 0;
+            if(gGndFadeDur <= 0) { gGndCol = [...gGndTarget]; }
+        }
+        continue;
+    }
+
     if(t.kind==='block'&&t.solid){
       if (gMode === 'wave') {
           if (dx < hw + TILE*0.3 && dy < hh + TILE*0.3) {
@@ -1373,27 +1477,30 @@ function updateG(dt){
       // The slope surface goes from bottom-left to top-right
       // In wave mode: instant death on contact. In cube/ship: act as a ramp.
       if(gMode === 'wave'){
-        // Wave death: check if player is inside the triangle bounding box
-        if(dx < hw && dy < hh){
-          // Triangle: bottom-left to bottom-right to top-right
-          // Point (px,py) relative to obj center
-          const px_r = player.x - obj.x; // relative x
-          const py_r = player.y - obj.y; // relative y
-          // The hypotenuse goes from (-hw, hh) to (hw, -hh) (bottom-left to top-right)
-          // Above the hypotenuse = inside the slope solid region
-          // Hypotenuse line: (py - hh) / (dx_total) = (-2*hh) / (2*hw) => py_on_line at px_r = hh - (px_r + hw) * (hh / hw)
+        // Only kill if player center is clearly inside the solid triangle region
+        if(dx < hw + TILE*0.1 && dy < hh + TILE*0.1){
+          const px_r = player.x - obj.x;
+          const py_r = player.y - obj.y;
+          // Hypotenuse from bottom-left (-hw,hh) to top-right (hw,-hh)
+          // Surface Y at player X: hh - (px_r + hw) * (hh/hw)
           const surfaceY = hh - (px_r + hw) * (hh / hw);
-          if(py_r >= surfaceY){
+          // Only die if clearly below the surface AND inside the base rect
+          // Add a small tolerance so grazing the slope is safe
+          if(py_r > surfaceY + TILE*0.15 && px_r > -hw && px_r < hw){
             die(); return;
           }
         }
       } else {
-        // Cube/ship: ramp behavior
-        if(dx < hw + pLandHW && dy < hh + pLandHH && player.vy >= 0){
-          const px_r = player.x - obj.x;
+        // Cube/ship: ramp behavior — only if approaching from the left/top
+        // px_r is player X relative to slope center
+        const px_r = player.x - obj.x;
+        // Only collide if player is within the slope width (left side to right edge)
+        // and not past the top-right tip (where slope ends and player should just fall)
+        if(px_r < hw && dx < hw + pLandHW && dy < hh + pLandHH && player.vy >= 0){
           // Y of slope surface at player x
           const surfaceY = obj.y + hh - (px_r + hw) * (hh / hw);
           const playerBottom = player.y + pLandHH;
+          // Only land if player bottom reaches surface and player center is above the base
           if(playerBottom >= surfaceY && player.y < obj.y + hh){
             player.y = surfaceY - pLandHH;
             player.vy = 0;
@@ -1437,11 +1544,13 @@ function updateG(dt){
       }
   }
 
-  // Skateboard launch: detect moment cube leaves the slope tip
+  // Skateboard launch: detect moment cube leaves the slope tip into air
+  // Only trigger if truly airborne (not just stepped onto a block)
   if(player.wasOnSlope && !player.onSlope && !player.onGround && gMode==='cube'){
-    // Apply a small upward kick — like flying off the top of a ramp
     player.vy = Math.min(player.vy, JUMP_V * 0.38);
   }
+  // If we're on flat ground (not slope), cancel pending launch
+  if(player.onGround && !player.onSlope) player.wasOnSlope = false;
   player.wasOnSlope = player.onSlope;
   if(player.x>=lvEnd){ won=true;show('win-screen','flex');$('win-screen').onclick=exitGame; }
   const pct=Math.min(100,Math.max(0,(player.x/lvEnd)*100));
@@ -1504,8 +1613,14 @@ function drawG(){
     const off=-(gCamX%GROUND_TS)-GROUND_TS;
     for(let tx=off;tx<logicalW+GROUND_TS;tx+=GROUND_TS)
       gCtx2.drawImage(IM.ground, tx, animFloorY, GROUND_TS, GROUND_TS);
+    // Ground color tint overlay
+    gCtx2.globalCompositeOperation='multiply';
+    gCtx2.fillStyle=rgbToHex(Math.round(gGndCol[0]),Math.round(gGndCol[1]),Math.round(gGndCol[2]));
+    gCtx2.fillRect(0, animFloorY, logicalW, logicalH);
+    gCtx2.globalCompositeOperation='source-over';
   } else {
-    gCtx2.fillStyle='#3a6020'; gCtx2.fillRect(0, animFloorY, logicalW, GROUND_TS);
+    gCtx2.fillStyle=rgbToHex(Math.round(gGndCol[0]),Math.round(gGndCol[1]),Math.round(gGndCol[2]));
+    gCtx2.fillRect(0, animFloorY, logicalW, GROUND_TS);
   }
 
   if(gMode==='ship' || gMode==='wave' || shipTransAnim > 0){
