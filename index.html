@@ -47,6 +47,19 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
 #hint{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.9);border-radius:8px;padding:6px 9px;font-size:10px;color:#8af;line-height:1.85;pointer-events:none;border:1px solid #334; text-align:right;}
 #sz-lbl{position:absolute;bottom:114px;right:6px;background:rgba(0,0,0,.78);border-radius:6px;padding:3px 8px;font-size:11px;color:#FFD700;pointer-events:none;}
 
+/* Layers Panel */
+#layers-panel{position:absolute;left:0;top:48px;bottom:106px;width:200px;background:rgba(10,20,40,0.95);border-right:2px solid #3AF;z-index:50;display:none;flex-direction:column;color:#fff;}
+#layers-panel h3{font-size:16px;text-align:center;padding:10px;background:#1a2b4a;flex-shrink:0;}
+#layers-list-container{overflow-y:auto;flex-grow:1;}
+.layer-card{display:flex;align-items:center;padding:5px 8px;border-bottom:1px solid #1a2b4a;cursor:grab;user-select:none;}
+.layer-card:active{cursor:grabbing;}
+.layer-card.dragging{opacity:0.5;background:#3498DB;}
+.layer-card img{width:24px;height:24px;object-fit:contain;margin-right:8px;}
+.layer-card span{font-size:11px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.layer-card.drop-hint-top { border-top: 2px solid #FFD700; }
+.layer-card.drop-hint-bottom { border-bottom: 2px solid #FFD700; }
+
+
 /* Trigger/Deco Menus */
 .editor-popup{position:absolute;right:15px;background:#1a2b4a;border:3px solid #3AF;border-radius:12px;padding:15px;display:none;flex-direction:column;gap:9px;z-index:20;}
 .editor-popup h3{color:#FFD700;text-align:center;margin-bottom:5px;font-size:16px;}
@@ -149,16 +162,21 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
     <button class="tb" onclick="doUndo()" title="Ctrl+Z">↩ UNDO</button>
     <button class="tb" onclick="doRedo()" title="Ctrl+Y">↪ REDO</button>
     <div class="sep"></div>
-    <button class="tb" id="tool-music" onclick="toggleEdMusic()" title="Preview Music Sync (Enter)">🎵 SYNC</button>
+    <button class="tb" id="tool-music" onclick="toggleEdMusic()" title="Preview Music Sync (Enter)">🎵 Music</button>
     <button class="tb" style="border-color:#2ECC40;color:#2ECC40" onclick="saveLevel()">💾 SAVE</button>
     <button class="tb" style="border-color:#3AF;color:#3AF"       onclick="testLevel()">▶ TEST</button>
     
     <div id="hint">
-      LMB Drag (Place) / Middle Mouse / WASD: Pan Camera<br>
-      Right Click: Delete | Ctrl+D: Duplicate | Shift+Drag: Box Select | Scroll: Zoom<br>
+      LMB Drag (Place) / MMB / WASD: Pan | Right Click: Delete | N: Toggle Layers<br>
+      Ctrl+D: Duplicate | Shift+Drag: Box Select | Scroll: Zoom<br>
       Q/E: Rotate Selected | G: Toggle Snap | Enter: Play Music Sync
     </div>
     <div id="sz-lbl">Scale: 1.00×</div>
+  </div>
+  
+  <div id="layers-panel">
+    <h3>Layers</h3>
+    <div id="layers-list-container"></div>
   </div>
   
   <div id="ed-wrap"><canvas id="ed-c"></canvas></div>
@@ -566,6 +584,7 @@ let szBase=null,szOrig=[];
 let selScale=1,showHB=false,edRun=false,edListened=false,escOp=false;
 let edSnap=true;
 let edMusicPlaying=false;
+let layersPanelVisible = false;
 
 // ── UNDO / REDO ──
 let undoStack=[], redoStack=[];
@@ -573,24 +592,27 @@ function pushUndo(){
   undoStack.push(JSON.stringify(edObjs));
   if(undoStack.length>80) undoStack.shift();
   redoStack=[];
+  renderLayersPanel();
 }
 function doUndo(){
   if(!undoStack.length) return;
   redoStack.push(JSON.stringify(edObjs));
   edObjs=JSON.parse(undoStack.pop());
   selObjs=[];
+  renderLayersPanel();
 }
 function doRedo(){
   if(!redoStack.length) return;
   undoStack.push(JSON.stringify(edObjs));
   edObjs=JSON.parse(redoStack.pop());
   selObjs=[];
+  renderLayersPanel();
 }
 
 function newLevel(){
   edObjs=[];edIdx=-1;$('ed-name').value='My Level';
-  bgColor='#1a2a6c';$('bg-color-inp').value=bgColor;
-  edGroundColor='#3a6020';$('ground-color-inp').value=edGroundColor;
+  bgColor='#287dff';$('bg-color-inp').value=bgColor;
+  edGroundColor='#287dff';$('ground-color-inp').value=edGroundColor;
   openEditor();
   attempts = 0; 
 }
@@ -655,7 +677,6 @@ function toggleEdMusic() {
         initAudio();
         if (currentMusic !== 'none' && audioPlayer.src) {
             let stX = getStartX();
-            // Start audio from where camera currently is!
             let startCamWorldX = camX + (edC.width/2)/camZoom;
             let startDist = startCamWorldX - stX;
             let startTime = Math.max(0, startDist / PLAYER_SPD);
@@ -828,7 +849,7 @@ const DTHR=5;
 
 function edMD(e){
   e.preventDefault();if(!edRun||escOp)return;
-  if(edMusicPlaying) toggleEdMusic(); // Stop music if clicked
+  if(edMusicPlaying) toggleEdMusic(); 
   
   if(e.button===2){ 
     lmbDown=false; isRmbDown=true;
@@ -1003,6 +1024,7 @@ function edKey(e){
   if(e.target.tagName==='INPUT' || e.target.tagName==='SELECT')return;
   const step=e.shiftKey?4:TILE;
   
+  if (e.key === 'n' || e.key === 'N') { toggleLayersPanel(); e.preventDefault(); return; }
   if(e.key === 'Enter') { toggleEdMusic(); e.preventDefault(); return; }
   if(e.key === 'g' || e.key === 'G') { toggleSnap(); e.preventDefault(); return; }
   
@@ -1019,6 +1041,7 @@ function edKey(e){
         newSels.push(no);
       });
       selObjs=newSels;
+      renderLayersPanel();
     }
     e.preventDefault(); 
     return;
@@ -1049,6 +1072,7 @@ function movSel(dx,dy){selObjs.forEach(o=>{o.x+=dx;o.y+=dy;});}
 function delSel(){
   edObjs=edObjs.filter(o=>!selObjs.includes(o));
   selObjs=[];
+  renderLayersPanel();
 }
 
 function placeObj(wx,wy){
@@ -1077,6 +1101,7 @@ function placeObj(wx,wy){
   const newObj = {typeId:t.id,x:sx,y:sy,rot:0,scale:sc};
   edObjs.push(newObj);
   selObjs = [newObj]; 
+  renderLayersPanel();
 }
 function getAt(wx,wy){
   for(let i=edObjs.length-1;i>=0;i--){
@@ -1091,6 +1116,7 @@ function deleteAt(wx,wy){
   if(o){
     edObjs=edObjs.filter(x=>x!==o);
     if(selObjs.includes(o)) selObjs = selObjs.filter(x=>x!==o);
+    renderLayersPanel();
   }
 }
 
@@ -1117,6 +1143,83 @@ function updTrigUI() {
   }
 }
 
+// ── LAYERS PANEL ──
+function toggleLayersPanel() {
+    layersPanelVisible = !layersPanelVisible;
+    if(layersPanelVisible) {
+        show('layers-panel', 'flex');
+        renderLayersPanel();
+    } else {
+        hide('layers-panel');
+    }
+}
+function renderLayersPanel() {
+    if (!layersPanelVisible) return;
+    const container = $('layers-list-container');
+    container.innerHTML = '';
+    edObjs.slice().reverse().forEach((obj, uiIndex) => {
+        const arrayIndex = edObjs.length - 1 - uiIndex;
+        const t = td(obj.typeId);
+        const card = document.createElement('div');
+        card.className = 'layer-card';
+        card.draggable = true;
+        card.dataset.arrayIndex = arrayIndex;
+        let label = t.lbl.replace(/\n/g, ' ');
+        if (obj.groupId) { label += ` (G${obj.groupId})`; }
+        card.innerHTML = `<img src="${SRC[t.img]}"><span>${label}</span>`;
+        card.addEventListener('dragstart', handleDragStart);
+        card.addEventListener('dragover', handleDragOver);
+        card.addEventListener('dragleave', handleDragLeave);
+        card.addEventListener('drop', handleDrop);
+        card.addEventListener('dragend', handleDragEnd);
+        container.appendChild(card);
+    });
+}
+let draggedIndex = null;
+function handleDragStart(e) {
+    draggedIndex = parseInt(e.target.dataset.arrayIndex);
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => e.target.classList.add('dragging'), 0);
+}
+function handleDragOver(e) {
+    e.preventDefault();
+    const targetCard = e.target.closest('.layer-card');
+    if (!targetCard || parseInt(targetCard.dataset.arrayIndex) === draggedIndex) return;
+    document.querySelectorAll('.layer-card').forEach(c => c.classList.remove('drop-hint-top', 'drop-hint-bottom'));
+    const rect = targetCard.getBoundingClientRect();
+    if (e.clientY < rect.top + rect.height / 2) {
+        targetCard.classList.add('drop-hint-top');
+    } else {
+        targetCard.classList.add('drop-hint-bottom');
+    }
+}
+function handleDragLeave(e) {
+    e.target.closest('.layer-card')?.classList.remove('drop-hint-top', 'drop-hint-bottom');
+}
+function handleDrop(e) {
+    e.preventDefault();
+    const targetCard = e.target.closest('.layer-card');
+    if (!targetCard || draggedIndex === null) return;
+    let targetIndex = parseInt(targetCard.dataset.arrayIndex);
+    if(draggedIndex === targetIndex) return;
+
+    pushUndo();
+    const [movedItem] = edObjs.splice(draggedIndex, 1);
+    if (draggedIndex < targetIndex) { targetIndex--; }
+    
+    const rect = targetCard.getBoundingClientRect();
+    const isAfter = e.clientY > (rect.top + rect.height / 2);
+    const finalIndex = isAfter ? targetIndex + 1 : targetIndex;
+
+    edObjs.splice(finalIndex, 0, movedItem);
+    draggedIndex = null;
+    renderLayersPanel();
+}
+function handleDragEnd(e) {
+    e.target.classList.remove('dragging');
+    document.querySelectorAll('.layer-card').forEach(c => c.classList.remove('drop-hint-top', 'drop-hint-bottom'));
+}
+
 function edLoop(){
   if(!edRun||$('editor').style.display!=='flex'){edRun=false;return;}
   drawEd();
@@ -1140,7 +1243,6 @@ function drawEd(){
   const gsc=w2s(0,GROUND_Y);
   const gsy=gsc.y;
   const tW=GROUND_TS*camZoom;
-  // Compute editor ground preview color: use first ground_trigger color if any exist, else edGroundColor
   let edGndPreview = edGroundColor;
   const firstGTrig = edObjs.find(o => o.typeId === 'ground_trigger' && o.gtCol);
   if(firstGTrig) edGndPreview = firstGTrig.gtCol;
@@ -1152,7 +1254,6 @@ function drawEd(){
     for(let tx=sx0;tx<W+tW;tx+=tW){
       edCtx.drawImage(IM.ground,tx,gsy,tW,tW);
     }
-    // Preview ground color tint in editor
     edCtx.globalCompositeOperation='multiply';
     edCtx.fillStyle=edGndPreview;
     edCtx.fillRect(0,gsy,W,H);
@@ -1191,18 +1292,15 @@ function drawEd(){
   if(edMusicPlaying && audioPlayer) {
       const stX = getStartX();
       const lineX = stX + audioPlayer.currentTime * PLAYER_SPD;
-      camX = lineX - (W/camZoom)*0.5; // Auto pan
       
       const sLineX = w2s(lineX, 0).x;
       const sStartX = w2s(stX, 0).x;
       
-      // Draw shadow box indicating passed time
       if(sLineX > sStartX) {
           edCtx.fillStyle = 'rgba(255, 215, 0, 0.1)';
           edCtx.fillRect(sStartX, 0, sLineX - sStartX, H);
       }
       
-      // Draw Line
       edCtx.strokeStyle = '#FFD700';
       edCtx.lineWidth = 3;
       edCtx.setLineDash([15, 10]);
@@ -1263,7 +1361,7 @@ function drawEd(){
         edCtx.strokeStyle='rgba(255,80,80,.9)';
         edCtx.lineWidth=2;
         edCtx.beginPath();
-        edCtx.arc(0, 0, 0.75 * TILE * sc * camZoom, 0, Math.PI*2); // Precise circular hitbox scale
+        edCtx.arc(0, 0, 0.75 * TILE * sc * camZoom, 0, Math.PI*2);
         edCtx.stroke();
       }
       else if(t.kind==='trigger' || t.kind==='start_pos'){
@@ -1650,8 +1748,7 @@ function updateG(dt){
     }
 
     if(t.kind === 'trigger' && !obj.activated) {
-        let isTouch = false;
-        if (obj.touch || obj.bgTouch || obj.gtTouch) isTouch = true;
+        let isTouch = !!obj.touch;
         
         let triggerActivated = false;
         if(isTouch) {
@@ -1826,11 +1923,11 @@ function updateG(dt){
         if(cur > 180) cur -= 360;
         player.rot = cur;
         const diff = slopeTarget - player.rot;
-        player.rot += diff * Math.min(1, 14 * dt);
+        player.rot += diff * Math.min(1, 90 * dt);
       } else {
         const snapped = Math.round(player.rot / 90) * 90;
         const diff = snapped - player.rot;
-        player.rot += diff * Math.min(1, 18 * dt);
+        player.rot += diff * Math.min(1, 90 * dt);
         if(Math.abs(diff) < 0.5) player.rot = snapped;
       }
       if(jHeld||jumpBuf>0){ 
