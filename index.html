@@ -141,6 +141,7 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
     <button class="tb on" id="tool-place"  onclick="setTool('place')">✚ PLACE</button>
     <button class="tb"    id="tool-select" onclick="setTool('select')">↖ SELECT</button>
     <button class="tb"    id="tool-size"   onclick="setTool('size')">⤡ SIZE</button>
+    <button class="tb on" id="tool-snap"   onclick="toggleSnap()" title="Toggle Grid Snap (G)">🧲 SNAP</button>
     <div class="sep"></div>
     <button class="tb" onclick="rotSel(-15)">◁Q</button>
     <button class="tb" onclick="rotSel(15)">E▷</button>
@@ -148,13 +149,14 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
     <button class="tb" onclick="doUndo()" title="Ctrl+Z">↩ UNDO</button>
     <button class="tb" onclick="doRedo()" title="Ctrl+Y">↪ REDO</button>
     <div class="sep"></div>
+    <button class="tb" id="tool-music" onclick="toggleEdMusic()" title="Preview Music Sync (Enter)">🎵 SYNC</button>
     <button class="tb" style="border-color:#2ECC40;color:#2ECC40" onclick="saveLevel()">💾 SAVE</button>
     <button class="tb" style="border-color:#3AF;color:#3AF"       onclick="testLevel()">▶ TEST</button>
     
     <div id="hint">
-      LMB Drag (Place Tool) / Middle Mouse / WASD: Pan Camera<br>
-      Right Click: Delete Object | Ctrl+D: Duplicate | Shift+Drag: Box Select | Scroll: Zoom<br>
-      Q/E: Rotate Selected (group) | Shift+WASD: Fine move (4px) | M: Show Hitboxes
+      LMB Drag (Place) / Middle Mouse / WASD: Pan Camera<br>
+      Right Click: Delete | Ctrl+D: Duplicate | Shift+Drag: Box Select | Scroll: Zoom<br>
+      Q/E: Rotate Selected | G: Toggle Snap | Enter: Play Music Sync
     </div>
     <div id="sz-lbl">Scale: 1.00×</div>
   </div>
@@ -357,10 +359,10 @@ const TYPES=[
   {id:'cube_port',lbl:'Cube\nPortal',img:'cube_port',w:1.4,  h:2.7, kind:'pcube', solid:false},
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
   {id:'wave_port',lbl:'Wave\nPortal',img:'wave_port',w:1.4,  h:2.7, kind:'pwave', solid:false},
-  {id:'start_pos',lbl:'Start\nPos',  img:'start_pos',w:1,    h:1,   kind:'start_pos',solid:false},
-  {id:'bg_trigger',lbl:'BG\nTrigger',img:'bg_trigger',w:1,   h:1,   kind:'trigger',solid:false},
-  {id:'ground_trigger',lbl:'Ground\nTrigger',img:'ground_trigger',w:1,h:1,kind:'trigger',solid:false},
-  {id:'alpha_trigger',lbl:'Alpha\nTrigger',img:'alpha_trigger',w:1,h:1,kind:'trigger',solid:false},
+  {id:'start_pos',lbl:'Start\nPos',  img:'start_pos',w:1,    h:0.8, kind:'start_pos',solid:false},
+  {id:'bg_trigger',lbl:'BG\nTrigger',img:'bg_trigger',w:0.8, h:1,   kind:'trigger',solid:false},
+  {id:'ground_trigger',lbl:'Ground\nTrigger',img:'ground_trigger',w:0.8,h:1,kind:'trigger',solid:false},
+  {id:'alpha_trigger',lbl:'Alpha\nTrigger',img:'alpha_trigger',w:1.2,h:1,kind:'trigger',solid:false},
   {id:'move_trigger',lbl:'Move\nTrigger',img:'move_trigger',w:1,h:1,kind:'trigger',solid:false},
   {id:'shallow_slope',lbl:'Shallow\nSlope',img:'shallow_slope',w:1,h:1,kind:'slope',solid:true},
   {id:'saw',      lbl:'Saw',         img:'saw',      w:2,    h:2,   kind:'saw',   solid:false},
@@ -528,6 +530,9 @@ function menuBgLoop(cid,activeid){
 function showMenu(){
   show('menu','flex');hide('levels-screen');hide('editor');hide('game');
   stopGame();edRun=false;closeEsc(); closeActiveMenu();
+  if (audioPlayer && $('editor').style.display !== 'flex' && $('game').style.display !== 'block') {
+      audioPlayer.pause();
+  }
   requestAnimationFrame(()=>menuBgLoop('menu-bg','menu'));
 }
 function showLevels(){
@@ -559,6 +564,8 @@ let objDrag=false,objDX=[],objDY=[];
 let sboxX=0,sboxY=0,sboxW=0,sboxH=0;
 let szBase=null,szOrig=[];
 let selScale=1,showHB=false,edRun=false,edListened=false,escOp=false;
+let edSnap=true;
+let edMusicPlaying=false;
 
 // ── UNDO / REDO ──
 let undoStack=[], redoStack=[];
@@ -601,6 +608,9 @@ function openEditor(){
   camX=200;camY=GROUND_Y-320;camZoom=1;
   selObjs=[];lmbDown=false;lmbDrag=false;lmbOnCanvas=false;isRmbDown=false;isMmbDown=false;objDrag=false;
   selScale=1;szBase=null;
+  edSnap = true; $('tool-snap').classList.add('on');
+  edMusicPlaying = false; $('tool-music').style.color = ''; $('tool-music').style.borderColor = '';
+  if (audioPlayer) audioPlayer.pause();
   undoStack=[]; redoStack=[];
   setTool('place');buildPanel();initEd();
   edRun=true;requestAnimationFrame(edLoop);
@@ -628,6 +638,34 @@ function pickType(id){
 function setTool(t){
   edTool=t;['place','select','size'].forEach(n=>{const e=$('tool-'+n);if(e)e.classList.toggle('on',n===t);});
   updSzLbl();
+}
+function toggleSnap(){
+  edSnap = !edSnap;
+  $('tool-snap').classList.toggle('on', edSnap);
+}
+function getStartX() {
+    const sp = edObjs.find(o => o.typeId === 'start_pos');
+    return sp ? sp.x : TILE * 3;
+}
+function toggleEdMusic() {
+    edMusicPlaying = !edMusicPlaying;
+    const btn = $('tool-music');
+    if (edMusicPlaying) {
+        btn.style.color = '#FFD700'; btn.style.borderColor = '#FFD700';
+        initAudio();
+        if (currentMusic !== 'none' && audioPlayer.src) {
+            let stX = getStartX();
+            // Start audio from where camera currently is!
+            let startCamWorldX = camX + (edC.width/2)/camZoom;
+            let startDist = startCamWorldX - stX;
+            let startTime = Math.max(0, startDist / PLAYER_SPD);
+            audioPlayer.currentTime = startTime;
+            audioPlayer.play().catch(e => console.error(e));
+        }
+    } else {
+        btn.style.color = ''; btn.style.borderColor = '';
+        if(audioPlayer) audioPlayer.pause();
+    }
 }
 function updSzLbl(){
   const sc=selObjs.length?(selObjs[0].scale||1):selScale;
@@ -706,8 +744,7 @@ function closeActiveMenu(){
     if(activeMenu) hide(activeMenu);
     activeMenu = null;
 }
-function bindTrigInputs(){
-  ['trig-col','trig-fade','trig-opac','trig-touch'].forEach(id=>{
+function bindTrigInputs(){['trig-col','trig-fade','trig-opac','trig-touch'].forEach(id=>{
     $(id).addEventListener('input',e=>{
       if(selObjs.length!==1 || selObjs[0].typeId !== 'bg_trigger') return;
       const o = selObjs[0];
@@ -791,6 +828,8 @@ const DTHR=5;
 
 function edMD(e){
   e.preventDefault();if(!edRun||escOp)return;
+  if(edMusicPlaying) toggleEdMusic(); // Stop music if clicked
+  
   if(e.button===2){ 
     lmbDown=false; isRmbDown=true;
     const {sx,sy} = gSXY(e); const wp=s2w(sx,sy); pushUndo(); deleteAt(wp.x,wp.y);
@@ -834,7 +873,27 @@ function edMM(e){
     const wp=s2w(sx,sy);sboxW=wp.x-sboxX;sboxH=wp.y-sboxY;return;
   }
   if(edTool==='select'&&objDrag&&selObjs.length){
-    const wp=s2w(sx,sy);selObjs.forEach((o,i)=>{o.x=wp.x+objDX[i];o.y=wp.y+objDY[i];});return;
+    const wp=s2w(sx,sy);
+    if(edSnap) {
+        const t = td(selObjs[0].typeId);
+        const sc = selObjs[0].scale || 1;
+        const step = (t.id==='half_block'||t.id==='small_spk'||t.id==='black_spk'||t.isDeco||t.id==='saw'||t.id==='start_pos') ? TILE/2 : TILE;
+        const sw = t.w * TILE * sc;
+        const sh = t.h * TILE * sc;
+        const rawX = wp.x + objDX[0];
+        const rawY = wp.y + objDY[0];
+        const snapX = Math.round((rawX - sw/2) / step) * step + sw/2;
+        const snapY = Math.round((rawY - sh/2) / step) * step + sh/2;
+        const offX = snapX - rawX;
+        const offY = snapY - rawY;
+        selObjs.forEach((o, i) => {
+            o.x = wp.x + objDX[i] + offX;
+            o.y = wp.y + objDY[i] + offY;
+        });
+    } else {
+        selObjs.forEach((o,i)=>{o.x=wp.x+objDX[i];o.y=wp.y+objDY[i];});
+    }
+    return;
   }
   if(edTool==='select'&&!objDrag){
     const wp=s2w(sx,sy);sboxW=wp.x-sboxX;sboxH=wp.y-sboxY;return;
@@ -892,6 +951,7 @@ function finishBox(add){
 }
 function edWhl(e){
   e.preventDefault();
+  if(edMusicPlaying) toggleEdMusic();
   if(edTool==='size'&&selObjs.length){
     const d=e.deltaY<0?0.1:-0.1;
     selObjs.forEach(o=>{o.scale=Math.max(0.1,Math.min(8,(o.scale||1)+d));});updSzLbl();return;
@@ -943,6 +1003,9 @@ function edKey(e){
   if(e.target.tagName==='INPUT' || e.target.tagName==='SELECT')return;
   const step=e.shiftKey?4:TILE;
   
+  if(e.key === 'Enter') { toggleEdMusic(); e.preventDefault(); return; }
+  if(e.key === 'g' || e.key === 'G') { toggleSnap(); e.preventDefault(); return; }
+  
   if(e.ctrlKey && (e.key==='z'||e.key==='Z')) { doUndo(); e.preventDefault(); return; }
   if(e.ctrlKey && (e.key==='y'||e.key==='Y')) { doRedo(); e.preventDefault(); return; }
 
@@ -990,12 +1053,15 @@ function delSel(){
 
 function placeObj(wx,wy){
   const t=selType,sc=selScale;
-  const step = (t.id === 'half_block' || t.id === 'small_spk' || t.id === 'black_spk' || t.isDeco || t.id === 'saw') ? TILE/2 : TILE;
+  const step = (t.id === 'half_block' || t.id === 'small_spk' || t.id === 'black_spk' || t.isDeco || t.id === 'saw' || t.id === 'start_pos') ? TILE/2 : TILE;
   const sw = t.w * TILE * sc;
   const sh = t.h * TILE * sc;
   
-  const sx = Math.round((wx - sw/2) / step) * step + sw/2;
-  const sy = Math.round((wy - sh/2) / step) * step + sh/2;
+  let sx = wx, sy = wy;
+  if(edSnap) {
+      sx = Math.round((wx - sw/2) / step) * step + sw/2;
+      sy = Math.round((wy - sh/2) / step) * step + sh/2;
+  }
 
   const objTop=sy-sh/2;
   if(objTop>=GROUND_Y)return;
@@ -1119,6 +1185,32 @@ function drawEd(){
     }
     edCtx.stroke();
     edCtx.restore();
+  }
+  
+  // MUSIC SYNC LINE 
+  if(edMusicPlaying && audioPlayer) {
+      const stX = getStartX();
+      const lineX = stX + audioPlayer.currentTime * PLAYER_SPD;
+      camX = lineX - (W/camZoom)*0.5; // Auto pan
+      
+      const sLineX = w2s(lineX, 0).x;
+      const sStartX = w2s(stX, 0).x;
+      
+      // Draw shadow box indicating passed time
+      if(sLineX > sStartX) {
+          edCtx.fillStyle = 'rgba(255, 215, 0, 0.1)';
+          edCtx.fillRect(sStartX, 0, sLineX - sStartX, H);
+      }
+      
+      // Draw Line
+      edCtx.strokeStyle = '#FFD700';
+      edCtx.lineWidth = 3;
+      edCtx.setLineDash([15, 10]);
+      edCtx.beginPath();
+      edCtx.moveTo(sLineX, 0);
+      edCtx.lineTo(sLineX, H);
+      edCtx.stroke();
+      edCtx.setLineDash([]);
   }
 
   edObjs.forEach(o=>{
@@ -1848,7 +1940,7 @@ function drawG(){
 
   curLv.objs.forEach(obj=>{
     const t=td(obj.typeId),sc=obj.scale||1;
-    if (t.kind === 'start_pos' && !fromEd) return; // Hide start pos in active play, maybe keep in test? Hide it always during game.
+    if (t.kind === 'start_pos' && !fromEd) return; // Hide start pos in active play
     if (t.kind === 'start_pos') return;
 
     const pos = getObjPos(obj);
