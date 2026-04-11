@@ -4,8 +4,15 @@
 <meta charset="UTF-8">
 <title>Geometry Dash Editor</title>
 <style>
+@font-face {
+  font-family: 'Pusab';
+  src: url('https://raw.githubusercontent.com/twojstarey/geometrydash/main/Pusab.woff2') format('woff2');
+  font-weight: normal;
+  font-style: normal;
+}
+
 *{margin:0;padding:0;box-sizing:border-box;}
-body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overflow:hidden;user-select:none;}
+body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hidden;user-select:none;}
 #menu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;}
 #menu-bg{position:absolute;inset:0;width:100%;height:100%;}
 #menu .ui{position:relative;z-index:2;text-align:center;}
@@ -108,7 +115,7 @@ body{background:#000;font-family:'Arial Black',Arial,sans-serif;color:#fff;overf
 #attempts-display{
   position:absolute; top:12px; right:7px; font-size:17px; font-weight:900;
   text-shadow:2px 2px 0 #000; color:#fff; text-align:right;
-  font-family:'Arial Black', Impact, sans-serif;
+  font-family:'Pusab', Impact, sans-serif;
 }
 
 #win-screen{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:50;cursor:pointer;}
@@ -251,7 +258,7 @@ const TILE=64, GROUND_Y=9*TILE;
 const CEIL_Y = -3*TILE; 
 const SHIP_TUNNEL_H = GROUND_Y - CEIL_Y; 
 const GROUND_TS=250;
-const PLAYER_SPD=650, GRAVITY=6000, JUMP_V=-1300;
+const PLAYER_SPD=650, GRAVITY=6000, JUMP_V=-1380;
 const SHIP_GRAV=2800, SHIP_THRUST=-3500, SHIP_MAXVY=1080;
 const BG_PAR=0.12;
 const BG_TS=1400;
@@ -289,8 +296,8 @@ const SRC={
   deco2:'https://i.imgur.com/omTYQuo.png',
   bg_trigger:'https://i.imgur.com/zsf7WEb.png',
   ground_trigger:'https://i.imgur.com/55QWy7m.png',
-  alpha_trigger:'https://i.imgur.com/gCZ5vqz.png',
-  move_trigger:'https://i.imgur.com/OAjbVEB.png',
+  alpha_trigger:'https://i.imgur.com/sa2bFKP.png',
+  move_trigger:'https://i.imgur.com/MpXaj91.png',
   saw:'https://i.imgur.com/eRhUsPU.png'
 };
 const IM={};
@@ -1101,6 +1108,19 @@ function drawEd(){
       } else {
         edCtx.drawImage(img,-sw/2,-sh/2,sw,sh);
       }
+      
+      if (t.id === 'alpha_trigger' || t.id === 'move_trigger') {
+        edCtx.font = `${28 * sc * camZoom}px Pusab, Arial`;
+        edCtx.textAlign = 'center';
+        edCtx.textBaseline = 'middle';
+        edCtx.lineWidth = 4 * sc * camZoom;
+        edCtx.strokeStyle = '#000';
+        edCtx.fillStyle = '#FFF';
+        let txtX = sw * 0;
+        let txtY = sh * 0.15;
+        edCtx.strokeText(o.targetId || 0, txtX, txtY);
+        edCtx.fillText(o.targetId || 0, txtX, txtY);
+      }
     }
     else{edCtx.fillStyle='#555';edCtx.fillRect(-sw/2,-sh/2,sw,sh);}
     edCtx.shadowBlur=0;
@@ -1139,7 +1159,7 @@ function drawEd(){
 
   const org=w2s(0,GROUND_Y-TILE*0.5);
   edCtx.fillStyle='rgba(0,255,100,.85)';edCtx.fillRect(org.x-4,org.y-4,8,8);
-  edCtx.fillStyle='rgba(0,255,100,.75)';edCtx.font='bold 11px Arial';edCtx.fillText('START',org.x+6,org.y+4);
+  edCtx.fillStyle='rgba(0,255,100,.75)';edCtx.font='bold 11px Pusab, Arial';edCtx.fillText('START',org.x+6,org.y+4);
 }
 
 function saveLevel(){
@@ -1163,6 +1183,7 @@ let lvEnd=0,dead=false,won=false;
 let jHeld=false,jPrev=false,jumpBuf=0;
 let hbx2=false,orbSt=[],lastT=0;
 let orbAnims=[]; 
+let padEffects=[];
 let deathParticles=[], deathWave=0, respawnTimer=0;
 
 function sX(wx) { return wx - gCamX; }
@@ -1178,7 +1199,8 @@ function startGame(lv,fe){
   curLv=lv;fromEd=fe;
   bgColor=lv.bg||'#1a2a6c'; groundColor=lv.gr||'#0055ff';
   $('g-title').textContent=lv.name;
-  hbx2=false;gMode='cube';dead=false;won=false;jHeld=false;jPrev=false;jumpBuf=0;orbAnims=[];
+  hbx2=false;gMode='cube';dead=false;won=false;jHeld=false;jPrev=false;jumpBuf=0;
+  orbAnims=[]; padEffects=[];
   deathParticles=[]; deathWave=0; respawnTimer=0;
   
   if(fromEd) playTrail =[];
@@ -1235,7 +1257,8 @@ function resetPl(){
   gCamX = player.x - logicalW * 0.3;
   gCamY = GROUND_Y - 4 * TILE;
   shipTransAnim=0; shipTransDir=1; prevGMode='cube';
-  orbSt.forEach(o=>{ o.used=false; }); orbAnims=[];
+  orbSt.forEach(o=>{ o.used=false; }); 
+  orbAnims=[]; padEffects=[];
   pWaveTrail =[]; 
 }
 
@@ -1254,13 +1277,13 @@ function exitGame(){
   if(fromEd)openEditor();else showLevels();
 }
 function respawn(){
-  dead=false;won=false;jHeld=false;jPrev=false;jumpBuf=0;orbAnims=[];
+  dead=false;won=false;jHeld=false;jPrev=false;jumpBuf=0;
   hide('win-screen');gMode='cube';resetPl();
   
   if(fromEd) playTrail =[];
   initAudio();
 
-  window.activeMoves = [];
+  window.activeMoves =[];
   window.activeAlphas =[];
 
   let baseCol = hexToRgb(bgColor);
@@ -1294,6 +1317,7 @@ function gLoop(ts){
   if(!dead&&!won)updateG(dt);
   else if(dead) updateDeath(dt);
   orbAnims=orbAnims.filter(a=>{a.t+=dt;return a.t<=0.31;});
+  padEffects=padEffects.filter(e=>{e.t+=dt;return e.t<=0.35;});
   drawG();gAF=requestAnimationFrame(gLoop);
 }
 
@@ -1522,7 +1546,7 @@ function updateG(dt){
             } else if(t.kind==='pwave' && gMode !== 'wave') {
                 gMode='wave'; player.vy=0;
                 player.rot = player.rot % 360; if(player.rot > 180) player.rot -= 360; else if(player.rot < -180) player.rot += 360;
-                pWaveTrail = [{x: player.x, y: player.y}];
+                pWaveTrail =[{x: player.x, y: player.y}];
             }
         }
     } else if (t.kind === 'trigger') {
@@ -1531,7 +1555,7 @@ function updateG(dt){
             if(triggerActivated) {
                 obj.activated = true;
                 if(obj.typeId === 'bg_trigger') {
-                    window.gBgStartCol = [...gBgCol];
+                    window.gBgStartCol =[...gBgCol];
                     gBgTarget = hexToRgb(obj.bgCol || '#ff0000');
                     gBgFadeDur = parseFloat(obj.bgFade) || 0;
                     gBgFadeT = 0; gBgStartOpac = gBgOpac;
@@ -1599,7 +1623,11 @@ function updateG(dt){
         let sawR = TILE * 0.75 * sc;
         if(dist < playerR + sawR) { die(); return; }
     } else if(t.kind==='pad'){
-      if(player.vy>=0 && dx < hw + pLandHH && dy < hh + pLandHH){player.vy=JUMP_V*1.7;player.onGround=false;}
+      if(player.vy>=0 && dx < hw + pLandHH && dy < hh + pLandHH){
+          player.vy=-2015; 
+          player.onGround=false;
+          padEffects.push({x: ox, y: oy, t: 0});
+      }
     } else if(t.kind==='orb'){
       const os=orbSt.find(s=>s.x===obj.x&&s.y===obj.y);
       if(os&&!os.used&&jHeld && dx < hw + pLandHH && dy < hh + pLandHH){
@@ -1802,6 +1830,19 @@ function drawG(){
         }
 
         if (drawGlow) gCtx2.shadowBlur = 0;
+        
+        if (t.id === 'alpha_trigger' || t.id === 'move_trigger') {
+          gCtx2.font = `${28 * sc}px Pusab, Arial`;
+          gCtx2.textAlign = 'center';
+          gCtx2.textBaseline = 'middle';
+          gCtx2.lineWidth = 4 * sc;
+          gCtx2.strokeStyle = '#000';
+          gCtx2.fillStyle = '#FFF';
+          let txtX = drawSw * 0.05;
+          let txtY = drawSh * 0.15;
+          gCtx2.strokeText(obj.targetId || 0, txtX, txtY);
+          gCtx2.fillText(obj.targetId || 0, txtX, txtY);
+        }
       }
       else{gCtx2.fillStyle='#555';gCtx2.fillRect(-drawSw/2,-drawSh/2,drawSw,drawSh);}
     }
@@ -1854,6 +1895,20 @@ function drawG(){
       gCtx2.stroke();
       gCtx2.restore();
   }
+
+  padEffects.forEach(e => {
+      let p = e.t / 0.35;
+      let r = p * TILE * 2.2;
+      gCtx2.save();
+      gCtx2.translate(sX(e.x), sY(e.y));
+      gCtx2.globalAlpha = Math.max(0, 1 - p) * 0.6;
+      gCtx2.strokeStyle = '#FFD700';
+      gCtx2.lineWidth = 12 * (1 - p);
+      gCtx2.beginPath();
+      gCtx2.arc(0, 0, r, 0, Math.PI * 2);
+      gCtx2.stroke();
+      gCtx2.restore();
+  });
 
   if (!dead) {
       gCtx2.save(); gCtx2.translate(px,py); gCtx2.rotate(player.rot*Math.PI/180);
