@@ -291,6 +291,8 @@ const SRC={
   grav_rev_port:'https://i.imgur.com/DDc7zyq.png',
   grav_norm_port:'https://i.imgur.com/naqFZGf.png',
   orb:'https://i.imgur.com/ysH0qCh.png',
+  pink_orb:'https://i.imgur.com/vjWVHQ2.png',
+  blue_orb:'https://i.imgur.com/Ux3VWbe.png',
   deco1:'https://i.imgur.com/Mp27IWo.png',
   deco2:'https://i.imgur.com/omTYQuo.png',
   bg_trigger:'https://i.imgur.com/zsf7WEb.png',
@@ -335,7 +337,9 @@ const TYPES=[
   {id:'deco1',    lbl:'Deco 1',      img:'deco1',    w:3.5,  h:1,   kind:'block', solid:false, isDeco:true},
   {id:'deco2',    lbl:'Deco 2',      img:'deco2',    w:1,    h:2.5, kind:'block', solid:false, isDeco:true},
   {id:'jump_pad', lbl:'Jump Pad',    img:'jump_pad', w:1.2,  h:0.2, kind:'pad',   solid:false},
-  {id:'orb',      lbl:'Orb',         img:'orb',      w:1,    h:1,   kind:'orb',   solid:false},
+  {id:'orb',      lbl:'Y. Orb',      img:'orb',      w:1,    h:1,   kind:'orb',   solid:false},
+  {id:'pink_orb', lbl:'P. Orb',      img:'pink_orb', w:1,    h:1,   kind:'orb',   solid:false},
+  {id:'blue_orb', lbl:'B. Orb',      img:'blue_orb', w:1,    h:1,   kind:'orb',   solid:false},
   {id:'cube_port',lbl:'Cube\nPortal',img:'cube_port',w:1.4,  h:2.7, kind:'pcube', solid:false},
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
   {id:'wave_port',lbl:'Wave\nPortal',img:'wave_port',w:1.4,  h:2.7, kind:'pwave', solid:false},
@@ -1277,7 +1281,7 @@ function startGame(lv,fe){
   let baseGrCol = hexToRgb(groundColor);
   gGrCol =[...baseGrCol]; gGrTarget =[...baseGrCol]; gGrFadeT = 0; gGrFadeDur = 0;
 
-  orbSt=lv.objs.filter(o=>o.typeId==='orb').map(o=>({...o,used:false}));
+  orbSt=lv.objs.filter(o=>td(o.typeId).kind==='orb').map(o=>({...o,used:false}));
   resetPl(); 
   
   if (currentMusic !== 'none' && audioPlayer.src) { 
@@ -1723,8 +1727,16 @@ function updateG(dt){
     } else if(t.kind==='orb'){
       const os=orbSt.find(s=>s.x===obj.x&&s.y===obj.y);
       if(os&&!os.used&&jHeld && dx < hw + pLandHH && dy < hh + pLandHH){
-        player.vy = JUMP_V * gravityDir; player.onGround=false; os.used=true;
-        orbAnims.push({x:obj.x,y:obj.y,t:0});
+        if (obj.typeId === 'orb') {
+            player.vy = JUMP_V * gravityDir; 
+        } else if (obj.typeId === 'pink_orb') {
+            player.vy = -1050 * gravityDir; 
+        } else if (obj.typeId === 'blue_orb') {
+            gravityDir = -gravityDir;
+            player.vy = JUMP_V * 0.2 * gravityDir; 
+        }
+        player.onGround=false; os.used=true;
+        orbAnims.push({x:obj.x, y:obj.y, t:0, type:obj.typeId});
       }
     }
   }
@@ -1937,7 +1949,9 @@ function drawG(){
     if(t.kind !== 'trigger' || hbx2) {
       if(ok(img)){
         if (drawGlow) {
-            gCtx2.shadowColor = '#FFD700';
+            if(obj.typeId === 'pink_orb') gCtx2.shadowColor = '#FF55FF';
+            else if(obj.typeId === 'blue_orb') gCtx2.shadowColor = '#55AAFF';
+            else gCtx2.shadowColor = '#FFD700';
             gCtx2.shadowBlur = 30 * glowAlpha * opac;
         }
 
@@ -1973,7 +1987,10 @@ function drawG(){
         const ringScale = 1 + ringP * 1.0; 
         gCtx2.globalAlpha = (1 - ringP) * 0.8 * opac; 
         gCtx2.save(); gCtx2.scale(ringScale, ringScale);
-        gCtx2.strokeStyle = '#FFD700'; gCtx2.lineWidth = 4;
+        if(anim.type === 'pink_orb') gCtx2.strokeStyle = '#FF55FF';
+        else if(anim.type === 'blue_orb') gCtx2.strokeStyle = '#55AAFF';
+        else gCtx2.strokeStyle = '#FFD700';
+        gCtx2.lineWidth = 4;
         gCtx2.beginPath(); gCtx2.arc(0,0,sw*0.55,0,Math.PI*2); gCtx2.stroke();
         gCtx2.restore();
         gCtx2.globalAlpha = opac;
@@ -1985,7 +2002,7 @@ function drawG(){
         gCtx2.strokeStyle='rgba(255,80,80,.9)'; gCtx2.lineWidth=2; 
         const sHW_visual=(sw/2)*0.25, sHH_visual=(sh/2)*0.35;
         const spikeCenterY_visual = (sh/2) - sHH_visual - (sh * 0.25);
-        gCtx2.strokeRect(-sHW_visual, spikeCenterY_visual - sHH_visual, sHW_visual*2, sHH_visual*2); 
+        edCtx.strokeRect(-sHW_visual, spikeCenterY_visual - sHH_visual, sHW_visual*2, sHH_visual*2); 
       }
       else if(t.kind==='saw'){
         gCtx2.strokeStyle='rgba(255,80,80,.9)'; gCtx2.lineWidth=2;
