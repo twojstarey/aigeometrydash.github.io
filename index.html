@@ -112,12 +112,6 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 #prog-bar-img{width:168px;height:9px;max-width:none;display:block;object-fit:fill;}
 #g-pct{position:absolute;top:32px;left:50%;transform:translateX(-50%);font-size:13px;font-weight:900;text-shadow:1px 1px 0 #000;}
 
-#attempts-display{
-  position:absolute; top:12px; right:7px; font-size:17px; font-weight:900;
-  text-shadow:2px 2px 0 #000; color:#fff; text-align:right;
-  font-family:'Pusab', Impact, sans-serif;
-}
-
 #win-screen{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:50;cursor:pointer;}
 #win-screen h2{font-size:54px;color:#FFD700;text-shadow:4px 4px 0 #8B4513;}
 #win-screen p{font-size:20px;color:#fff;margin-top:7px;}
@@ -246,7 +240,6 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
       </div>
     </div>
     <div id="g-pct">0%</div>
-    <div id="attempts-display">Attempts: 0</div>
   </div>
   <button id="g-back" onclick="exitGame()">← QUIT</button>
   <div id="win-screen"><h2>🏆 COMPLETE!</h2><p>Click to continue</p></div>
@@ -258,7 +251,7 @@ const TILE=64, GROUND_Y=9*TILE;
 const CEIL_Y = -3*TILE; 
 const SHIP_TUNNEL_H = GROUND_Y - CEIL_Y; 
 const GROUND_TS=250;
-const PLAYER_SPD=650, GRAVITY=6000, JUMP_V=-1380;
+const PLAYER_SPD=650, GRAVITY=6000, JUMP_V=-1250;
 const SHIP_GRAV=2800, SHIP_THRUST=-3500, SHIP_MAXVY=1080;
 const BG_PAR=0.12;
 const BG_TS=1400;
@@ -473,7 +466,7 @@ function drawBg(ctx,W,H,camX,camY, overrideColor=null, overrideOpac=1){
 
   const imgW = W;
   const imgH = W;
-  const imgY = H * 0.92 - imgH;
+  const imgY = H * 1.1 - imgH;
   const driftX = (-camX * BG_PAR) % imgW;
 
   ctx.globalCompositeOperation = 'multiply';
@@ -561,7 +554,6 @@ function newLevel(){
   bgColor='#1a2a6c'; groundColor='#0055ff';
   $('bg-color-inp').value=bgColor; $('gr-color-inp').value=groundColor;
   openEditor();
-  attempts = 0; 
 }
 function editLevel(i){
   const {levels} = getLS();
@@ -569,7 +561,6 @@ function editLevel(i){
   bgColor=lv.bg||'#1a2a6c'; groundColor=lv.gr||'#0055ff';
   $('bg-color-inp').value=bgColor; $('gr-color-inp').value=groundColor;
   $('ed-name').value=lv.name;hide('levels-screen');openEditor();
-  attempts = 0; 
 }
 function openEditor(){
   hide('menu');hide('levels-screen');show('editor','flex');hide('game');
@@ -1064,6 +1055,15 @@ function drawEd(){
   } else {
     edCtx.fillStyle='#3a5520';edCtx.fillRect(0,gsy,W,tW);
   }
+
+  let edGrad = edCtx.createLinearGradient(0, 0, W, 0);
+  edGrad.addColorStop(0, 'rgba(255,255,255,0)');
+  edGrad.addColorStop(0.05, 'rgba(255,255,255,1)');
+  edGrad.addColorStop(0.95, 'rgba(255,255,255,1)');
+  edGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  edCtx.fillStyle = edGrad;
+  edCtx.fillRect(0, gsy - 2, W, 4);
+
   edCtx.strokeStyle='rgba(255,220,0,.55)';edCtx.lineWidth=2;edCtx.setLineDash([7,5]);
   edCtx.beginPath();edCtx.moveTo(0,gsy);edCtx.lineTo(W,gsy);edCtx.stroke();
   
@@ -1110,13 +1110,13 @@ function drawEd(){
       }
       
       if (t.id === 'alpha_trigger' || t.id === 'move_trigger') {
-        edCtx.font = `${28 * sc * camZoom}px Pusab, Arial`;
+        edCtx.font = `${32 * sc * camZoom}px Pusab, Arial`;
         edCtx.textAlign = 'center';
         edCtx.textBaseline = 'middle';
-        edCtx.lineWidth = 4 * sc * camZoom;
+        edCtx.lineWidth = 5 * sc * camZoom;
         edCtx.strokeStyle = '#000';
         edCtx.fillStyle = '#FFF';
-        let txtX = sw * 0;
+        let txtX = 0;
         let txtY = sh * 0.15;
         edCtx.strokeText(o.targetId || 0, txtX, txtY);
         edCtx.fillText(o.targetId || 0, txtX, txtY);
@@ -1184,14 +1184,10 @@ let jHeld=false,jPrev=false,jumpBuf=0;
 let hbx2=false,orbSt=[],lastT=0;
 let orbAnims=[]; 
 let padEffects=[];
-let deathParticles=[], deathWave=0, respawnTimer=0;
+let deathParticles=[], deathWave=0, respawnTimer=0, gAttemptTextTimer=0;
 
 function sX(wx) { return wx - gCamX; }
 function sY(wy) { return wy - gCamY + (gC ? (gC.height / gZoom) / 2 : 0); }
-
-function updateAttemptsDisplay() {
-  $('attempts-display').textContent = 'Attempts: ' + attempts;
-}
 
 function startGame(lv,fe){
   edRun=false;hide('menu');hide('editor');show('game','block');
@@ -1204,6 +1200,9 @@ function startGame(lv,fe){
   deathParticles=[]; deathWave=0; respawnTimer=0;
   
   if(fromEd) playTrail =[];
+
+  attempts = 1;
+  gAttemptTextTimer = 1.5;
 
   initAudio(); 
 
@@ -1245,8 +1244,6 @@ function startGame(lv,fe){
   document.addEventListener('keydown',gKD);document.addEventListener('keyup',gKU);
   window.addEventListener('resize',gRes);
   stopGame();lastT=performance.now();gRun=true;gAF=requestAnimationFrame(gLoop);
-
-  updateAttemptsDisplay(); 
 }
 
 function resetPl(){
@@ -1283,6 +1280,8 @@ function respawn(){
   if(fromEd) playTrail =[];
   initAudio();
 
+  gAttemptTextTimer = 1.5;
+
   window.activeMoves =[];
   window.activeAlphas =[];
 
@@ -1308,7 +1307,6 @@ function respawn(){
       audioPlayer.pause(); 
       audioPlayer.currentTime = 0;
   }
-  updateAttemptsDisplay(); 
 }
 
 function gLoop(ts){
@@ -1316,6 +1314,7 @@ function gLoop(ts){
   const dt=Math.min((ts-lastT)/1000,0.05);lastT=ts;
   if(!dead&&!won)updateG(dt);
   else if(dead) updateDeath(dt);
+  if(gAttemptTextTimer > 0) gAttemptTextTimer -= dt;
   orbAnims=orbAnims.filter(a=>{a.t+=dt;return a.t<=0.31;});
   padEffects=padEffects.filter(e=>{e.t+=dt;return e.t<=0.35;});
   drawG();gAF=requestAnimationFrame(gLoop);
@@ -1690,7 +1689,6 @@ function die(){
       }
   }
   respawnTimer = 1.0;
-  updateAttemptsDisplay(); 
 }
 
 function drawG(){
@@ -1733,6 +1731,14 @@ function drawG(){
   } else {
     gCtx2.fillRect(0, animFloorY, logicalW, GROUND_TS);
   }
+
+  let gGrad = gCtx2.createLinearGradient(0, 0, logicalW, 0);
+  gGrad.addColorStop(0, 'rgba(255,255,255,0)');
+  gGrad.addColorStop(0.05, 'rgba(255,255,255,1)');
+  gGrad.addColorStop(0.95, 'rgba(255,255,255,1)');
+  gGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  gCtx2.fillStyle = gGrad;
+  gCtx2.fillRect(0, animFloorY - 2, logicalW, 4);
 
   if(gMode==='ship' || gMode==='wave' || shipTransAnim > 0){
     let ceilTop = animCeilY - GROUND_TS;
@@ -1838,7 +1844,7 @@ function drawG(){
           gCtx2.lineWidth = 4 * sc;
           gCtx2.strokeStyle = '#000';
           gCtx2.fillStyle = '#FFF';
-          let txtX = drawSw * 0.05;
+          let txtX = drawSw * 0;
           let txtY = drawSh * 0.15;
           gCtx2.strokeText(obj.targetId || 0, txtX, txtY);
           gCtx2.fillText(obj.targetId || 0, txtX, txtY);
@@ -1877,6 +1883,29 @@ function drawG(){
     gCtx2.restore();
     gCtx2.globalAlpha = 1; 
   });
+
+  if (gAttemptTextTimer > 0) {
+    let alpha = 1.0;
+    if (gAttemptTextTimer < 1.0) {
+        alpha = gAttemptTextTimer;
+    }
+    gCtx2.save();
+    gCtx2.globalAlpha = alpha;
+    gCtx2.font = `bold 72px Pusab`;
+    gCtx2.textAlign = 'center';
+    gCtx2.textBaseline = 'middle';
+    gCtx2.lineWidth = 10;
+    gCtx2.strokeStyle = '#000';
+    gCtx2.fillStyle = '#FFF';
+
+    const text = "ATTEMPT " + attempts;
+    const textX = sX(TILE * 10);
+    const textY = sY(CEIL_Y + (GROUND_Y - CEIL_Y) / 2);
+
+    gCtx2.strokeText(text, textX, textY);
+    gCtx2.fillText(text, textX, textY);
+    gCtx2.restore();
+  }
 
   const px=sX(player.x),py=sY(player.y); 
 
