@@ -1,4 +1,3 @@
---- START OF FILE ai_studio_code (60).html ---
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,7 +291,6 @@ const SRC={
   grav_norm_port:'https://i.imgur.com/naqFZGf.png',
   orb:'https://i.imgur.com/ysH0qCh.png',
   pink_orb:'https://i.imgur.com/vjWVHQ2.png',
-  blue_orb:'https://i.imgur.com/Ux3VWbe.png',
   deco1:'https://i.imgur.com/Mp27IWo.png',
   deco2:'https://i.imgur.com/omTYQuo.png',
   bg_trigger:'https://i.imgur.com/zsf7WEb.png',
@@ -339,7 +337,6 @@ const TYPES=[
   {id:'jump_pad', lbl:'Jump Pad',    img:'jump_pad', w:1.2,  h:0.2, kind:'pad',   solid:false},
   {id:'orb',      lbl:'Y. Orb',      img:'orb',      w:1,    h:1,   kind:'orb',   solid:false},
   {id:'pink_orb', lbl:'P. Orb',      img:'pink_orb', w:1,    h:1,   kind:'orb',   solid:false},
-  {id:'blue_orb', lbl:'B. Orb',      img:'blue_orb', w:1,    h:1,   kind:'orb',   solid:false},
   {id:'cube_port',lbl:'Cube\nPortal',img:'cube_port',w:1.4,  h:2.7, kind:'pcube', solid:false},
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
   {id:'wave_port',lbl:'Wave\nPortal',img:'wave_port',w:1.4,  h:2.7, kind:'pwave', solid:false},
@@ -1191,7 +1188,7 @@ function drawEd(){
         edCtx.lineWidth=2;
         const sHW_visual = (sw/2) * 0.25;  
         const sHH_visual = (sh/2) * 0.35; 
-        const spikeCenterY_visual = (sh/2) - sHH_visual - (sh * 0.25);
+        const spikeCenterY_visual = (sh/2) - sHH_visual - (sh * 0.30);
         edCtx.strokeRect(-sHW_visual, spikeCenterY_visual - sHH_visual, sHW_visual*2, sHH_visual*2);
       }
       else if(t.kind==='saw'){
@@ -1321,9 +1318,9 @@ function resetPl(){
 
 function gRes(){if(gC){gC.width=innerWidth;gC.height=innerHeight;}}
 function stopGame(){gRun=false;if(gAF){cancelAnimationFrame(gAF);gAF=null;}}
-function gKD(e){if(!gRun)return;if(e.code==='Space'||e.code==='ArrowUp'){jHeld=true;jumpBuf=0.15;}if(e.key==='m'||e.key==='M')hbx2=!hbx2;}
+function gKD(e){if(!gRun)return;if(e.code==='Space'||e.code==='ArrowUp'){if(!jHeld)jumpBuf=0.15; jHeld=true;}if(e.key==='m'||e.key==='M')hbx2=!hbx2;}
 function gKU(e){if(e.code==='Space'||e.code==='ArrowUp')jHeld=false;}
-function gClick(e){if(!gRun)return;if(won){exitGame();return;}if(dead)return; initAudio(); jHeld=true;jumpBuf=0.15;}
+function gClick(e){if(!gRun)return;if(won){exitGame();return;}if(dead)return; initAudio(); if(!jHeld)jumpBuf=0.15; jHeld=true;}
 function gMUp(){jHeld=false;}
 function exitGame(){
   stopGame();jHeld=false;
@@ -1463,15 +1460,15 @@ function updateG(dt){
   if (isTunnel) {
       targetCamY = (tunnelFloor + tunnelCeil) / 2;
   } else {
-      if (gravityDir === 1) {
+      if (gravityDir === 1) { // Normal gravity
           const maxCam = tunnelFloor - logicalH * 0.35;
           if (targetCamY > maxCam) targetCamY = maxCam;
-      } else {
-          const minCam = tunnelCeil + logicalH * 0.35;
-          if (targetCamY < minCam) targetCamY = minCam;
+      } else { // Reverse gravity
+          // No minimum camera position for reversed gravity
       }
   }
   gCamY += (targetCamY - gCamY) * Math.min(1, 8 * dt);
+
 
   if(gBgFadeDur > 0) {
     gBgFadeT += dt;
@@ -1711,7 +1708,8 @@ function updateG(dt){
       const cos = Math.cos(rad), sin = Math.sin(rad);
       const pxLocal = (player.x - ox) * cos - (player.y - oy) * sin;
       const pyLocal = (player.x - ox) * sin + (player.y - oy) * cos;
-      const sHW_obj = hw * 0.25, sHH_obj = hh * 0.35, spikeCenterYOffset = hh - sHH_obj - (hh * 2 * 0.25);
+      const sHW_obj = hw * 0.25, sHH_obj = hh * 0.35;
+      const spikeCenterYOffset = hh - sHH_obj - (hh * 0.30);
       if(Math.abs(pxLocal) <= sHW_obj + pRedHW && Math.abs(pyLocal - spikeCenterYOffset) <= sHH_obj + pRedHH){ die(); return; }
     } else if(t.kind==='saw'){
         let dist = Math.hypot(player.x - ox, player.y - oy);
@@ -1726,16 +1724,18 @@ function updateG(dt){
       }
     } else if(t.kind==='orb'){
       const os=orbSt.find(s=>s.x===obj.x&&s.y===obj.y);
-      if(os&&!os.used&&jHeld && dx < hw + pLandHH && dy < hh + pLandHH){
+      if(os && !os.used && jumpBuf > 0 && dx < hw + TILE*0.3 && dy < hh + TILE*0.3){
         if (obj.typeId === 'orb') {
             player.vy = JUMP_V * gravityDir; 
         } else if (obj.typeId === 'pink_orb') {
             player.vy = -1050 * gravityDir; 
         } else if (obj.typeId === 'blue_orb') {
             gravityDir = -gravityDir;
-            player.vy = JUMP_V * 0.2 * gravityDir; 
+            player.vy = JUMP_V * 0.4 * gravityDir; 
+            player.rot = Math.round(player.rot / 90) * 90;
         }
         player.onGround=false; os.used=true;
+        jumpBuf = 0;
         orbAnims.push({x:obj.x, y:obj.y, t:0, type:obj.typeId});
       }
     }
@@ -2001,8 +2001,8 @@ function drawG(){
       else if(t.kind==='spike'){ 
         gCtx2.strokeStyle='rgba(255,80,80,.9)'; gCtx2.lineWidth=2; 
         const sHW_visual=(sw/2)*0.25, sHH_visual=(sh/2)*0.35;
-        const spikeCenterY_visual = (sh/2) - sHH_visual - (sh * 0.25);
-        edCtx.strokeRect(-sHW_visual, spikeCenterY_visual - sHH_visual, sHW_visual*2, sHH_visual*2); 
+        const spikeCenterY_visual = (sh/2) - sHH_visual - ((sh/2) * 0.3);
+        gCtx2.strokeRect(-sHW_visual, spikeCenterY_visual - sHH_visual, sHW_visual*2, sHH_visual*2); 
       }
       else if(t.kind==='saw'){
         gCtx2.strokeStyle='rgba(255,80,80,.9)'; gCtx2.lineWidth=2;
@@ -2127,4 +2127,3 @@ window.addEventListener('load', () => {
 </script>
 </body>
 </html>
---- END OF FILE ai_studio_code (60).html ---
