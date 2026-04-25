@@ -583,7 +583,7 @@ let szBase=null,szOrig=[];
 let selScale=1,showHB=false,edRun=false,edListened=false,escOp=false;
 
 // ── UNDO/REDO ──
-let undoStack = [];
+let undoStack =[];
 let redoStack =[];
 let isRmbDragAction = false;
 let lastScrollTime = 0;
@@ -1257,6 +1257,7 @@ let hbx2=false,orbSt=[],lastT=0;
 let orbAnims=[]; 
 let padEffects=[];
 let deathParticles=[], deathWave=0, respawnTimer=0, gAttemptTextTimer=0;
+let playerParticles =[];
 
 function sX(wx) { return wx - gCamX; }
 function sY(wy) { return wy - gCamY + (gC ? (gC.height / gZoom) / 2 : 0); }
@@ -1330,11 +1331,13 @@ function resetPl(){
   tunnelCeil = CEIL_Y;
   
   gCamX = player.x - logicalW * 0.3;
-  gCamY = tunnelFloor - logicalH * 0.25; // Adjusted down for better view
+  gCamY = tunnelFloor - logicalH * 0.25; 
   shipTransAnim=0; shipTransDir=1; prevGMode='cube';
   orbSt.forEach(o=>{ o.used=false; }); 
   orbAnims=[]; padEffects=[];
   pWaveTrail =[]; 
+  playerParticles =[];
+  player.partTimer = 0;
 }
 
 function gRes(){if(gC){gC.width=innerWidth;gC.height=innerHeight;}}
@@ -1478,15 +1481,15 @@ function updateG(dt){
   if(shipTransAnim > 0) shipTransAnim = Math.max(0, shipTransAnim - dt);
 
   // Smooth Camera Follow
-  let targetCamY = player.y + (logicalH * 0.1 * gravityDir); // Add offset to shift camera lower naturally
+  let targetCamY = player.y + (logicalH * 0.1 * gravityDir); 
   if (isTunnel) {
       targetCamY = (tunnelFloor + tunnelCeil) / 2;
   } else {
-      if (gravityDir === 1) { // Normal gravity
-          const maxCam = tunnelFloor - logicalH * 0.25; // Adjusted down for better view
+      if (gravityDir === 1) { 
+          const maxCam = tunnelFloor - logicalH * 0.25; 
           if (targetCamY > maxCam) targetCamY = maxCam;
-      } else { // Reverse gravity
-          const minCam = tunnelCeil + logicalH * 0.25; // Adjusted down for better view
+      } else { 
+          const minCam = tunnelCeil + logicalH * 0.25; 
           if (targetCamY < minCam) targetCamY = minCam;
       }
   }
@@ -1623,11 +1626,11 @@ function updateG(dt){
   while(pWaveTrail.length > 0 && pWaveTrail[0].x < gCamX - TILE*2) pWaveTrail.shift();
 
   // --- Collision and Interaction Loop ---
-  player.onDBlock = false; // reset each frame; set true below if riding a D block surface
+  player.onDBlock = false; 
   for(const obj of curLv.objs){
     const t=td(obj.typeId),sc=obj.scale||1;
     if (t.isDeco) continue; 
-    if (t.kind === 'dblock') continue; // D blocks have no direct collision
+    if (t.kind === 'dblock') continue; 
     
     const ox = obj.x + (obj.offsetX || 0);
     const oy = obj.y + (obj.offsetY || 0);
@@ -1822,6 +1825,48 @@ function updateG(dt){
           player.y += player.vy * dt; 
       }
   }
+  
+  if (!dead) {
+      player.partTimer = (player.partTimer || 0) + dt;
+      let shouldSpawn = (gMode === 'cube' && player.onGround) || (gMode === 'ship' && jHeld);
+      if (shouldSpawn && player.partTimer > 0.05) {
+          player.partTimer = 0;
+          let numP = 1 + Math.floor(Math.random() * 2); 
+          for(let i=0; i<numP; i++) {
+              let spawnY = player.y + (pLandHH - 4) * gravityDir;
+              let spawnX = player.x - TILE*0.4 * pScale;
+              
+              let pVx = (Math.random() - 0.5) * 250;
+              let pVy = (Math.random() * -250 - 80) * gravityDir;
+              
+              if (gMode === 'ship') {
+                  spawnY = player.y + (TILE * 0.3 * pScale) * gravityDir;
+                  spawnX = player.x - TILE * 0.6 * pScale;
+                  pVy = (Math.random() * 300 - 150) + (player.vy * 0.3); 
+              }
+
+              playerParticles.push({
+                  x: spawnX + (Math.random() - 0.5) * 10,
+                  y: spawnY,
+                  vx: pVx,
+                  vy: pVy,
+                  life: 1.0,
+                  size: TILE * (0.08 + Math.random() * 0.12) * pScale,
+                  rot: Math.random() * 360,
+                  rotV: (Math.random() - 0.5) * 600,
+                  col: Math.random() > 0.5 ? '#00FFFF' : '#66FFFF'
+              });
+          }
+      }
+  }
+  
+  playerParticles = playerParticles.filter(p => {
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      p.rot += p.rotV * dt;
+      p.life -= dt * 4.0; 
+      return p.life > 0;
+  });
 
   player.wasOnSlope = player.onSlope;
   if(player.x>=lvEnd){ won=true;show('win-screen','flex');$('win-screen').onclick=exitGame; }
@@ -2126,17 +2171,11 @@ function drawG(){
   });
 
   if (gAttemptTextTimer > 0) {
-    let alpha = 1.0;
-    if (gAttemptTextTimer < 1.0) {
-        alpha = gAttemptTextTimer;
-    }
     gCtx2.save();
-    gCtx2.globalAlpha = alpha;
-    gCtx2.font = `bold 72px Pusab`;
+    gCtx2.globalAlpha = 1.0;
+    gCtx2.font = `72px Pusab`;
     gCtx2.textAlign = 'center';
     gCtx2.textBaseline = 'middle';
-    gCtx2.lineWidth = 10;
-    gCtx2.strokeStyle = '#000';
     gCtx2.fillStyle = '#FFF';
 
     const text = "ATTEMPT " + attempts;
@@ -2145,7 +2184,6 @@ function drawG(){
     const textX = sX(startX);
     const textY = sY(tunnelFloor - TILE * 5); 
 
-    gCtx2.strokeText(text, textX, textY);
     gCtx2.fillText(text, textX, textY);
     gCtx2.restore();
   }
@@ -2182,6 +2220,17 @@ function drawG(){
       gCtx2.beginPath();
       gCtx2.arc(0, 0, r, 0, Math.PI * 2);
       gCtx2.stroke();
+      gCtx2.restore();
+  });
+  
+  // Render Player Trail Particles
+  playerParticles.forEach(p => {
+      gCtx2.save();
+      gCtx2.globalAlpha = Math.max(0, p.life);
+      gCtx2.fillStyle = p.col;
+      gCtx2.translate(sX(p.x), sY(p.y));
+      gCtx2.rotate(p.rot * Math.PI / 180);
+      gCtx2.fillRect(-p.size/2, -p.size/2, p.size, p.size);
       gCtx2.restore();
   });
 
