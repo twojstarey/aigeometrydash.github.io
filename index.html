@@ -57,7 +57,7 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 /* Edit Object Menu */
 #edit-menu { top: 115px; width: 260px; max-height: calc(100vh - 140px); overflow-y: auto; }
 .editor-popup{position:absolute;right:15px;background:#1a2b4a;border:3px solid #3AF;border-radius:12px;padding:15px;display:none;flex-direction:column;gap:9px;z-index:20;}
-.editor-popup h3{color:#FFD700;text-align:center;margin-bottom:5px;font-size:16px;}
+.editor-popup h3{color:#FFD700;text-align:center;margin-bottom:2px;font-size:16px;}
 .ep-close{position:absolute;top:8px;right:8px;background:#E74C3C;border:none;color:#fff;border-radius:6px;width:24px;height:24px;font-weight:bold;cursor:pointer;}
 .ep-row{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:#fff;}
 .ep-row input[type="color"]{width:70px; height:24px; padding:0; border:1px solid #3AF; background: none;}
@@ -171,6 +171,7 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
   <div id="edit-menu" class="editor-popup">
     <button class="ep-close" onclick="closeActiveMenu()">X</button>
     <h3 id="edit-title">Edit Object</h3>
+    <div style="font-size:9px;color:#aaa;text-align:center;margin-bottom:8px;">Press ENTER to apply numbers</div>
     <div class="ep-row"><span>Group ID:</span> <input type="number" id="obj-group" min="0"></div>
 
     <div id="edit-bg-grp">
@@ -583,7 +584,7 @@ let szBase=null,szOrig=[];
 let selScale=1,showHB=false,edRun=false,edListened=false,escOp=false;
 
 // ── UNDO/REDO ──
-let undoStack =[];
+let undoStack = [];
 let redoStack =[];
 let isRmbDragAction = false;
 let lastScrollTime = 0;
@@ -682,43 +683,49 @@ function doTest(){
 
 let activeMenu = null;
 function openActiveMenu() {
-    if(selObjs.length !== 1) return;
-    const o = selObjs[0];
-    const type = td(o.typeId);
-    saveState();
-    
-    $('edit-title').textContent = type.lbl.replace('\n', ' ');
-    $('obj-group').value = o.groupId || 0;
+    if(selObjs.length === 0) return;
 
     hide('edit-bg-grp'); hide('edit-alpha-grp'); hide('edit-move-grp'); hide('edit-deco-grp');
 
-    if (o.typeId === 'bg_trigger' || o.typeId === 'ground_trigger') {
-        $('edit-bg-grp').style.display = 'flex';
-        $('trig-col').value = o.bgCol || (o.typeId === 'bg_trigger' ? '#ff0000' : '#00ff00');
-        $('trig-fade').value = o.bgFade !== undefined ? o.bgFade : 0.5;
-        if(o.typeId === 'bg_trigger') {
-            $('edit-bg-opac-row').style.display = 'flex';
-            $('trig-opac').value = o.bgOpac !== undefined ? o.bgOpac : 1.0;
-        } else {
-            $('edit-bg-opac-row').style.display = 'none';
+    if (selObjs.length === 1) {
+        const o = selObjs[0];
+        const type = td(o.typeId);
+        $('edit-title').textContent = type.lbl.replace('\n', ' ');
+        $('obj-group').value = o.groupId || 0;
+
+        if (o.typeId === 'bg_trigger' || o.typeId === 'ground_trigger') {
+            $('edit-bg-grp').style.display = 'flex';
+            $('trig-col').value = o.bgCol || (o.typeId === 'bg_trigger' ? '#ff0000' : '#00ff00');
+            $('trig-fade').value = o.bgFade !== undefined ? o.bgFade : 0.5;
+            if(o.typeId === 'bg_trigger') {
+                $('edit-bg-opac-row').style.display = 'flex';
+                $('trig-opac').value = o.bgOpac !== undefined ? o.bgOpac : 1.0;
+            } else {
+                $('edit-bg-opac-row').style.display = 'none';
+            }
+            $('trig-touch').checked = !!o.bgTouch;
+        } else if (o.typeId === 'alpha_trigger') {
+            $('edit-alpha-grp').style.display = 'flex';
+            $('alpha-target').value = o.targetId || 0;
+            $('alpha-opac').value = o.alphaOpac !== undefined ? o.alphaOpac : 0.5;
+            $('alpha-time').value = o.alphaTime !== undefined ? o.alphaTime : 0.5;
+            $('alpha-touch').checked = !!o.bgTouch;
+        } else if (o.typeId === 'move_trigger') {
+            $('edit-move-grp').style.display = 'flex';
+            $('move-target').value = o.targetId || 0;
+            $('move-x').value = o.moveX !== undefined ? o.moveX : 10;
+            $('move-y').value = o.moveY !== undefined ? o.moveY : 0;
+            $('move-time').value = o.moveTime !== undefined ? o.moveTime : 0.5;
+            $('move-touch').checked = !!o.bgTouch;
+        } else if (type.isDeco) {
+            $('edit-deco-grp').style.display = 'flex';
+            $('deco-col').value = o.color || '#ffffff';
         }
-        $('trig-touch').checked = !!o.bgTouch;
-    } else if (o.typeId === 'alpha_trigger') {
-        $('edit-alpha-grp').style.display = 'flex';
-        $('alpha-target').value = o.targetId || 0;
-        $('alpha-opac').value = o.alphaOpac !== undefined ? o.alphaOpac : 0.5;
-        $('alpha-time').value = o.alphaTime !== undefined ? o.alphaTime : 0.5;
-        $('alpha-touch').checked = !!o.bgTouch;
-    } else if (o.typeId === 'move_trigger') {
-        $('edit-move-grp').style.display = 'flex';
-        $('move-target').value = o.targetId || 0;
-        $('move-x').value = o.moveX !== undefined ? o.moveX : 10;
-        $('move-y').value = o.moveY !== undefined ? o.moveY : 0;
-        $('move-time').value = o.moveTime !== undefined ? o.moveTime : 0.5;
-        $('move-touch').checked = !!o.bgTouch;
-    } else if (type.isDeco) {
-        $('edit-deco-grp').style.display = 'flex';
-        $('deco-col').value = o.color || '#ffffff';
+    } else {
+        $('edit-title').textContent = `Edit ${selObjs.length} Objects`;
+        let firstGrp = selObjs[0].groupId || 0;
+        let sameGrp = selObjs.every(x => (x.groupId || 0) === firstGrp);
+        $('obj-group').value = sameGrp ? firstGrp : "";
     }
 
     show('edit-menu','flex');
@@ -728,42 +735,58 @@ function closeActiveMenu(){
     if(activeMenu) hide(activeMenu);
     activeMenu = null;
 }
-function bindTrigInputs(){
-  $('obj-group').addEventListener('change', e => {
-      if(selObjs.length !== 1) return;
-      selObjs[0].groupId = parseInt(e.target.value) || 0;
-  });['trig-col','trig-fade','trig-opac','trig-touch',
+
+function applyInput(id, val) {
+    if(selObjs.length === 0) return;
+    saveState();
+    selObjs.forEach(o => {
+        if(id === 'obj-group') o.groupId = val === "" ? 0 : parseInt(val) || 0;
+        
+        if(id==='trig-col') o.bgCol = val;
+        if(id==='trig-fade') o.bgFade = parseFloat(val);
+        if(id==='trig-opac') o.bgOpac = parseFloat(val);
+        if(id==='trig-touch') o.bgTouch = val;
+        
+        if(id==='alpha-target') o.targetId = parseInt(val) || 0;
+        if(id==='alpha-opac') o.alphaOpac = parseFloat(val);
+        if(id==='alpha-time') o.alphaTime = parseFloat(val);
+        if(id==='alpha-touch') o.bgTouch = val;
+        
+        if(id==='move-target') o.targetId = parseInt(val) || 0;
+        if(id==='move-x') o.moveX = parseFloat(val);
+        if(id==='move-y') o.moveY = parseFloat(val);
+        if(id==='move-time') o.moveTime = parseFloat(val);
+        if(id==='move-touch') o.bgTouch = val;
+
+        if(id==='deco-col') o.color = val;
+    });
+    if(id === 'deco-col') tintCache.clear();
+}
+
+function bindTrigInputs(){['obj-group','trig-col','trig-fade','trig-opac','trig-touch',
    'alpha-target','alpha-opac','alpha-time','alpha-touch',
    'move-target','move-x','move-y','move-time','move-touch',
    'deco-col'
   ].forEach(id=>{
     const el = $(id);
     if(!el) return;
-    el.addEventListener('change',e=>{
-      if(selObjs.length!==1) return;
-      const o = selObjs[0];
-      
-      if(id==='trig-col') o.bgCol = e.target.value;
-      if(id==='trig-fade') o.bgFade = parseFloat(e.target.value);
-      if(id==='trig-opac') o.bgOpac = parseFloat(e.target.value);
-      if(id==='trig-touch') o.bgTouch = e.target.checked;
-      
-      if(id==='alpha-target') o.targetId = parseInt(e.target.value) || 0;
-      if(id==='alpha-opac') o.alphaOpac = parseFloat(e.target.value);
-      if(id==='alpha-time') o.alphaTime = parseFloat(e.target.value);
-      if(id==='alpha-touch') o.bgTouch = e.target.checked;
-      
-      if(id==='move-target') o.targetId = parseInt(e.target.value) || 0;
-      if(id==='move-x') o.moveX = parseFloat(e.target.value);
-      if(id==='move-y') o.moveY = parseFloat(e.target.value);
-      if(id==='move-time') o.moveTime = parseFloat(e.target.value);
-      if(id==='move-touch') o.bgTouch = e.target.checked;
-
-      if(id==='deco-col') {
-          o.color = e.target.value;
-          tintCache.clear(); 
-      }
-    });
+    
+    if (el.type === 'number' || el.type === 'text') {
+        el.addEventListener('keydown', e => {
+            if(e.key === 'Enter') {
+                applyInput(id, el.value);
+                el.blur(); 
+            }
+        });
+    } else if (el.type === 'checkbox') {
+        el.addEventListener('change', e => {
+            applyInput(id, e.target.checked);
+        });
+    } else if (el.type === 'color') {
+        el.addEventListener('change', e => {
+            applyInput(id, e.target.value);
+        });
+    }
   });
 }
 
@@ -1062,14 +1085,14 @@ function deleteAt(wx,wy){
 let lastSelCount = -1, lastSelType = '';
 function updTrigUI() {
   const c = selObjs.length;
-  const tId = c === 1 ? selObjs[0].typeId : '';
+  const tId = c === 1 ? selObjs[0].typeId : (c > 1 ? 'multi' : '');
   const b = $('btn-edit-obj');
 
   if(c !== lastSelCount || tId !== lastSelType) {
     lastSelCount = c; lastSelType = tId;
     closeActiveMenu(); 
     if(b) {
-      if(c === 1) b.style.display = 'block';
+      if(c >= 1) b.style.display = 'block';
       else b.style.display = 'none';
     }
   }
@@ -1826,23 +1849,25 @@ function updateG(dt){
       }
   }
   
+  // Update Trail Particles
   if (!dead) {
       player.partTimer = (player.partTimer || 0) + dt;
       let shouldSpawn = (gMode === 'cube' && player.onGround) || (gMode === 'ship' && jHeld);
-      if (shouldSpawn && player.partTimer > 0.05) {
+      
+      if (shouldSpawn && player.partTimer > 0.08) {
           player.partTimer = 0;
           let numP = 1 + Math.floor(Math.random() * 2); 
           for(let i=0; i<numP; i++) {
               let spawnY = player.y + (pLandHH - 4) * gravityDir;
               let spawnX = player.x - TILE*0.4 * pScale;
               
-              let pVx = (Math.random() - 0.5) * 250;
-              let pVy = (Math.random() * -250 - 80) * gravityDir;
+              let pVx = (Math.random() - 0.5) * 500; // Increased horizontal scatter
+              let pVy = (Math.random() * -450 - 150) * gravityDir; // More explosive vertical pop
               
               if (gMode === 'ship') {
                   spawnY = player.y + (TILE * 0.3 * pScale) * gravityDir;
                   spawnX = player.x - TILE * 0.6 * pScale;
-                  pVy = (Math.random() * 300 - 150) + (player.vy * 0.3); 
+                  pVy = (Math.random() * 500 - 250) + (player.vy * 0.3); // Faster ship sparks
               }
 
               playerParticles.push({
@@ -1853,7 +1878,7 @@ function updateG(dt){
                   life: 1.0,
                   size: TILE * (0.08 + Math.random() * 0.12) * pScale,
                   rot: Math.random() * 360,
-                  rotV: (Math.random() - 0.5) * 600,
+                  rotV: (Math.random() - 0.5) * 800, // Faster rotation
                   col: Math.random() > 0.5 ? '#00FFFF' : '#66FFFF'
               });
           }
@@ -1864,7 +1889,7 @@ function updateG(dt){
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.rotV * dt;
-      p.life -= dt * 4.0; 
+      p.life -= dt * 6.0; // Dissipates MUCH faster
       return p.life > 0;
   });
 
