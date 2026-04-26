@@ -2016,10 +2016,12 @@ function die(){
   
   if(gMode==='ship'){
     const ci=IM.cube, si=IM.ship;
+    // Inner Layer (Cube)
+    if(ok(ci)) ox.drawImage(ci, -TILE*0.35, -TILE*0.65, TILE*0.6, TILE*0.6);
+    else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.35,-TILE*0.65,TILE*0.6,TILE*0.6);}
+    // Outer Layer (Ship Shell)
     if(ok(si)) ox.drawImage(si, -TILE*0.8, -TILE*0.4, TILE*1.6, TILE*0.8);
     else {ox.fillStyle='rgba(255,140,0,.85)';ox.fillRect(-TILE*0.8,-TILE*0.4,TILE*1.6,TILE*0.8);}
-    if(ok(ci)) ox.drawImage(ci, -TILE*0.3, -TILE*0.56, TILE*0.45, TILE*0.45);
-    else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.3,-TILE*0.56,TILE*0.45,TILE*0.45);}
   } else if (gMode==='ufo'){
     const ci=IM.cube, ui=IM.ufo;
     if(ok(ci)) ox.drawImage(ci, -TILE*0.25, -TILE*0.35, TILE*0.5, TILE*0.5);
@@ -2369,10 +2371,12 @@ function drawG(){
       
       if(gMode==='ship'){
         const ci=IM.cube, si=IM.ship;
+        // Inner Layer (Cube)
+        if(ok(ci)) gCtx2.drawImage(ci, -TILE*0.35, -TILE*0.65, TILE*0.6, TILE*0.6);
+        else {gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE*0.35,-TILE*0.65,TILE*0.6,TILE*0.6);}
+        // Outer Layer (Ship Shell)
         if(ok(si)) gCtx2.drawImage(si, -TILE*0.8, -TILE*0.4, TILE*1.6, TILE*0.8);
         else {gCtx2.fillStyle='rgba(255,140,0,.85)';gCtx2.fillRect(-TILE*0.8,-TILE*0.4,TILE*1.6,TILE*0.8);}
-        if(ok(ci)) gCtx2.drawImage(ci, -TILE*0.3, -TILE*0.56, TILE*0.45, TILE*0.45);
-        else {gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE*0.3,-TILE*0.56,TILE*0.45,TILE*0.45);}
       } else if (gMode==='ufo'){
         const ci=IM.cube, ui=IM.ufo;
         // Inner Layer (Cube)
