@@ -274,6 +274,7 @@ const SRC={
   bg:'https://i.imgur.com/PsXJdC6.png',
   cube:'https://i.imgur.com/LWmt7mD.png',
   ship:'https://i.imgur.com/CLUsNln.png',
+  ufo:'https://i.imgur.com/Fn3UQty.png',
   wave:'https://i.imgur.com/tvA1vnp.png',
   ground:'https://i.imgur.com/HCFkqKg.png', 
   spike:'https://i.imgur.com/9DwKJb2.png',
@@ -288,6 +289,7 @@ const SRC={
   black_spk:'https://i.imgur.com/XRjw8PX.png',
   cube_port:'https://i.imgur.com/qVh7VIT.png',
   ship_port:'https://i.imgur.com/zxT7Z80.png',
+  ufo_port:'https://i.imgur.com/2oHUMN8.png',
   wave_port:'https://i.imgur.com/HJWopPf.png',
   mini_port:'https://i.imgur.com/PR26SAd.png',
   norm_port:'https://i.imgur.com/OQkuCn5.png',
@@ -344,6 +346,7 @@ const TYPES=[
   {id:'pink_orb', lbl:'P. Orb',      img:'pink_orb', w:1,    h:1,   kind:'orb',   solid:false},
   {id:'cube_port',lbl:'Cube\nPortal',img:'cube_port',w:1.4,  h:2.7, kind:'pcube', solid:false},
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
+  {id:'ufo_port', lbl:'UFO\nPortal', img:'ufo_port', w:1.4,  h:2.7, kind:'pufo',  solid:false},
   {id:'wave_port',lbl:'Wave\nPortal',img:'wave_port',w:1.4,  h:2.7, kind:'pwave', solid:false},
   {id:'mini_port',lbl:'Mini\nPortal',img:'mini_port',w:1.4,  h:2.7, kind:'pmini', solid:false},
   {id:'norm_port',lbl:'Norm\nPortal',img:'norm_port',w:1.4,  h:2.7, kind:'pnorm', solid:false},
@@ -584,7 +587,7 @@ let szBase=null,szOrig=[];
 let selScale=1,showHB=false,edRun=false,edListened=false,escOp=false;
 
 // ── UNDO/REDO ──
-let undoStack = [];
+let undoStack =[];
 let redoStack =[];
 let isRmbDragAction = false;
 let lastScrollTime = 0;
@@ -1346,9 +1349,9 @@ function resetPl(){
   gravityDir = 1;
   isMini = false;
   player={x:TILE*3,y:GROUND_Y-TILE*0.5,vy:0,rot:0,onGround:false,slopeTargetRot:0,onSlope:false,wasOnSlope:false,onDBlock:false};
-  gZoom = gC ? gC.height / 720 : 1; 
+  gZoom = gC ? gC.height / 820 : 1; 
   const logicalW = gC ? gC.width / gZoom : innerWidth;
-  const logicalH = gC ? gC.height / gZoom : 720;
+  const logicalH = gC ? gC.height / gZoom : 820;
   
   tunnelFloor = GROUND_Y;
   tunnelCeil = CEIL_Y;
@@ -1442,7 +1445,7 @@ function updateDeath(dt) {
 }
 
 function updateG(dt){
-  gZoom = gC.height / 720; 
+  gZoom = gC.height / 820; 
   const logicalW = gC.width / gZoom;
   const logicalH = gC.height / gZoom;
 
@@ -1492,8 +1495,8 @@ function updateG(dt){
   player.x+=PLAYER_SPD*dt;
   gCamX=player.x-logicalW*0.3;
 
-  let isTunnel = (gMode === 'ship' || gMode === 'wave');
-  let wasTunnel = (prevGMode === 'ship' || prevGMode === 'wave');
+  let isTunnel = (gMode === 'ship' || gMode === 'wave' || gMode === 'ufo');
+  let wasTunnel = (prevGMode === 'ship' || prevGMode === 'wave' || prevGMode === 'ufo');
   if(gMode !== prevGMode){
     if(isTunnel !== wasTunnel) {
         shipTransDir = isTunnel ? 1 : -1;
@@ -1619,6 +1622,82 @@ function updateG(dt){
     
     const tgt = Math.max(-50, Math.min(50, player.vy * 0.05));
     player.rot += (tgt - player.rot) * 0.22;
+  } else if (gMode === 'ufo') {
+    let curGrav = isMini ? 3800 : 2700;
+    player.vy += curGrav * gravityDir * dt;
+    
+    if (jumpBuf > 0) {
+        player.vy = (isMini ? -800 : -930) * gravityDir;
+        player.rot = 18 * gravityDir; 
+        jumpBuf = 0; 
+    }
+    
+    player.y += player.vy * dt;
+    
+    player.onGround = false;
+    player.onSlope = false;
+    let landingY = gravityDir === 1 ? Infinity : -Infinity;
+    
+    let pEdge = player.y + pLandHH * gravityDir;
+    let pPrevEdge = player.y - player.vy*dt + pLandHH * gravityDir;
+
+    for(const obj of curLv.objs) {
+        const t = td(obj.typeId);
+        if (!t.solid) continue;
+        const ox = obj.x + (obj.offsetX || 0);
+        const oy = obj.y + (obj.offsetY || 0);
+        const sc = obj.scale || 1;
+        const hw = t.w * TILE * sc / 2, hh = t.h * TILE * sc / 2;
+
+        if (Math.abs(player.x - ox) > hw + Math.max(TILE/2, pLandHH)) continue; 
+
+        if (t.kind === 'block') {
+            let surfaceY = oy - hh * gravityDir;
+            if (gravityDir === 1) {
+                if (pEdge >= surfaceY && pPrevEdge <= surfaceY + 1) {
+                    if (surfaceY < landingY) landingY = surfaceY;
+                }
+            } else {
+                if (pEdge <= surfaceY && pPrevEdge >= surfaceY - 1) {
+                    if (surfaceY > landingY) landingY = surfaceY;
+                }
+            }
+        }
+    }
+
+    if (gravityDir === 1) {
+        if (pEdge >= tunnelFloor && pPrevEdge <= tunnelFloor + 1) {
+            if (tunnelFloor < landingY) landingY = tunnelFloor;
+        }
+        if (landingY !== Infinity) {
+            player.y = landingY - pLandHH;
+            if (player.vy > 0) player.vy = 0;
+            player.onGround = true;
+        }
+        let ufoRadius = TILE * 0.4 * pScale;
+        if (player.y - ufoRadius <= tunnelCeil) {
+            player.y = tunnelCeil + ufoRadius;
+            if (player.vy < 0) player.vy = 0;
+        }
+    } else {
+        if (pEdge <= tunnelCeil && pPrevEdge >= tunnelCeil - 1) {
+            if (tunnelCeil > landingY) landingY = tunnelCeil;
+        }
+        if (landingY !== -Infinity) {
+            player.y = landingY + pLandHH;
+            if (player.vy < 0) player.vy = 0;
+            player.onGround = true;
+        }
+        let ufoRadius = TILE * 0.4 * pScale;
+        if (player.y + ufoRadius >= tunnelFloor) {
+            player.y = tunnelFloor - ufoRadius;
+            if (player.vy > 0) player.vy = 0;
+        }
+    }
+
+    // Smoothly level out the rotation back to 0
+    player.rot += (0 - player.rot) * 10 * dt;
+
   } else if (gMode === 'wave') {
     let waveVy = PLAYER_SPD * (isMini ? 1.9626 : 1);
     player.vy = (jHeld ? -waveVy : waveVy) * gravityDir;
@@ -1661,7 +1740,7 @@ function updateG(dt){
     const hw=t.w*TILE*sc/2,hh=t.h*TILE*sc/2;
     const dx=Math.abs(player.x-ox),dy=Math.abs(player.y-oy);
 
-    if(t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm') {
+    if(t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pufo' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm') {
         if(dx < hw && dy < hh && !obj.activated) {
             obj.activated = true;
             if(t.kind==='pcube') {
@@ -1673,6 +1752,15 @@ function updateG(dt){
             } else if(t.kind==='pship') {
                 if (gMode !== 'ship') {
                     gMode='ship'; player.vy=0;
+                    player.rot = player.rot % 360; if(player.rot > 180) player.rot -= 360; else if(player.rot < -180) player.rot += 360;
+                }
+                let py = Math.round(oy / TILE) * TILE;
+                tunnelFloor = py + 6 * TILE;
+                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 12 * TILE; }
+                else tunnelCeil = py - 6 * TILE;
+            } else if(t.kind==='pufo') {
+                if (gMode !== 'ufo') {
+                    gMode='ufo'; player.vy=0;
                     player.rot = player.rot % 360; if(player.rot > 180) player.rot -= 360; else if(player.rot < -180) player.rot += 360;
                 }
                 let py = Math.round(oy / TILE) * TILE;
@@ -1820,6 +1908,11 @@ function updateG(dt){
             player.vy = (isMini ? -819 : -1050) * gravityDir; 
         }
         player.onGround=false; os.used=true;
+        
+        if (gMode === 'ufo') {
+            player.rot = 18 * gravityDir; // Hop rotation for orbs too
+        }
+        
         jumpBuf = 0;
         orbAnims.push({x:obj.x, y:obj.y, t:0, type:obj.typeId});
       }
@@ -1861,13 +1954,13 @@ function updateG(dt){
               let spawnY = player.y + (pLandHH - 4) * gravityDir;
               let spawnX = player.x - TILE*0.4 * pScale;
               
-              let pVx = (Math.random() - 0.5) * 500; // Increased horizontal scatter
-              let pVy = (Math.random() * -450 - 150) * gravityDir; // More explosive vertical pop
+              let pVx = (Math.random() - 0.5) * 500; 
+              let pVy = (Math.random() * -450 - 150) * gravityDir; 
               
               if (gMode === 'ship') {
                   spawnY = player.y + (TILE * 0.3 * pScale) * gravityDir;
                   spawnX = player.x - TILE * 0.6 * pScale;
-                  pVy = (Math.random() * 500 - 250) + (player.vy * 0.3); // Faster ship sparks
+                  pVy = (Math.random() * 500 - 250) + (player.vy * 0.3); 
               }
 
               playerParticles.push({
@@ -1878,7 +1971,7 @@ function updateG(dt){
                   life: 1.0,
                   size: TILE * (0.08 + Math.random() * 0.12) * pScale,
                   rot: Math.random() * 360,
-                  rotV: (Math.random() - 0.5) * 800, // Faster rotation
+                  rotV: (Math.random() - 0.5) * 800,
                   col: Math.random() > 0.5 ? '#00FFFF' : '#66FFFF'
               });
           }
@@ -1889,7 +1982,7 @@ function updateG(dt){
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.rotV * dt;
-      p.life -= dt * 6.0; // Dissipates MUCH faster
+      p.life -= dt * 6.0; 
       return p.life > 0;
   });
 
@@ -1927,6 +2020,12 @@ function die(){
     else {ox.fillStyle='rgba(255,140,0,.85)';ox.fillRect(-TILE*0.8,-TILE*0.4,TILE*1.6,TILE*0.8);}
     if(ok(ci)) ox.drawImage(ci, -TILE*0.3, -TILE*0.56, TILE*0.45, TILE*0.45);
     else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.3,-TILE*0.56,TILE*0.45,TILE*0.45);}
+  } else if (gMode==='ufo'){
+    const ci=IM.cube, ui=IM.ufo;
+    if(ok(ci)) ox.drawImage(ci, -TILE*0.25, -TILE*0.35, TILE*0.5, TILE*0.5);
+    else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.25,-TILE*0.35,TILE*0.5,TILE*0.5);}
+    if(ok(ui)) ox.drawImage(ui, -TILE*0.7, -TILE*0.5, TILE*1.4, TILE*1.0);
+    else {ox.fillStyle='#aaa';ox.beginPath();ox.arc(0,0,TILE*0.5,0,Math.PI*2);ox.fill();}
   } else if (gMode==='wave'){
     const wi=IM.wave;
     if(ok(wi)) ox.drawImage(wi, -TILE*0.5, -TILE*0.45, TILE*1.0, TILE*0.9);
@@ -2026,7 +2125,7 @@ function drawG(){
   gGrad.addColorStop(0.95, 'rgba(255,255,255,1)');
   gGrad.addColorStop(1, 'rgba(255,255,255,0)');
 
-  if(gMode==='ship' || gMode==='wave' || shipTransAnim > 0){
+  if(gMode==='ship' || gMode==='wave' || gMode==='ufo' || shipTransAnim > 0){
     let startCeilY = sY(tunnelCeil) - logicalH;
     let animCeilY = startCeilY + (sY(tunnelCeil) - startCeilY) * eased;
     let ceilTop = animCeilY - GROUND_TS;
@@ -2189,7 +2288,7 @@ function drawG(){
         gCtx2.strokeStyle='rgba(255,80,80,.9)'; gCtx2.lineWidth=2;
         gCtx2.beginPath(); gCtx2.arc(0,0,TILE*0.75*sc,0,Math.PI*2); gCtx2.stroke();
       }
-      else if(t.kind==='trigger' || t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm'){ gCtx2.strokeStyle='rgba(100,255,100,.9)'; gCtx2.lineWidth=2; gCtx2.strokeRect(-sw/2,-sh/2,sw,sh); }
+      else if(t.kind==='trigger' || t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pufo' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm'){ gCtx2.strokeStyle='rgba(100,255,100,.9)'; gCtx2.lineWidth=2; gCtx2.strokeRect(-sw/2,-sh/2,sw,sh); }
     }
     gCtx2.restore();
     gCtx2.globalAlpha = 1; 
@@ -2274,6 +2373,14 @@ function drawG(){
         else {gCtx2.fillStyle='rgba(255,140,0,.85)';gCtx2.fillRect(-TILE*0.8,-TILE*0.4,TILE*1.6,TILE*0.8);}
         if(ok(ci)) gCtx2.drawImage(ci, -TILE*0.3, -TILE*0.56, TILE*0.45, TILE*0.45);
         else {gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE*0.3,-TILE*0.56,TILE*0.45,TILE*0.45);}
+      } else if (gMode==='ufo'){
+        const ci=IM.cube, ui=IM.ufo;
+        // Inner Layer (Cube)
+        if(ok(ci)) gCtx2.drawImage(ci, -TILE*0.25, -TILE*0.35, TILE*0.5, TILE*0.5);
+        else {gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE*0.25,-TILE*0.35,TILE*0.5,TILE*0.5);}
+        // Outer Layer (UFO Shell)
+        if(ok(ui)) gCtx2.drawImage(ui, -TILE*0.7, -TILE*0.5, TILE*1.4, TILE*1.0);
+        else {gCtx2.fillStyle='#aaa';gCtx2.beginPath();gCtx2.arc(0,0,TILE*0.5,0,Math.PI*2);gCtx2.fill();}
       } else if (gMode==='wave'){
         const wi=IM.wave;
         if(ok(wi)) gCtx2.drawImage(wi, -TILE*0.5, -TILE*0.45, TILE*1.0, TILE*0.9);
@@ -2282,12 +2389,17 @@ function drawG(){
         const ci=IM.cube; if(ok(ci))gCtx2.drawImage(ci,-TILE/2,-TILE/2,TILE,TILE);
         else{gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE/2,-TILE/2,TILE,TILE);}
       }
-      if(hbx2){ gCtx2.strokeStyle='rgba(139,0,0,.95)'; gCtx2.lineWidth=2; const _hbs=gMode==='wave'?TILE*0.6:TILE; gCtx2.strokeRect(-_hbs/2,-_hbs/2,_hbs,_hbs); }
+      if(hbx2){ 
+        gCtx2.strokeStyle='rgba(139,0,0,.95)'; gCtx2.lineWidth=2; 
+        const _hbs = (gMode==='wave' || gMode==='ufo') ? TILE*0.6 : TILE; 
+        gCtx2.strokeRect(-_hbs/2,-_hbs/2,_hbs,_hbs); 
+      }
       gCtx2.restore();
       if(hbx2){
         gCtx2.save(); gCtx2.translate(px,py);
         let hbRed = TILE * pScale, hbBlue = TILE * 0.30 * pScale;
         if(gMode==='wave'){ hbRed = TILE*0.14 * pScale; hbBlue = TILE*0.07 * pScale; }
+        if(gMode==='ufo'){ hbRed = TILE*0.5 * pScale; hbBlue = TILE*0.2 * pScale; }
         gCtx2.strokeStyle= gMode==='wave' ? 'rgba(139,0,0,.95)' : 'rgba(255,100,100,.9)'; gCtx2.lineWidth=2; gCtx2.strokeRect(-hbRed/2, -hbRed/2, hbRed, hbRed);
         gCtx2.strokeStyle='rgba(60,60,255,.9)'; gCtx2.strokeRect(-hbBlue/2, -hbBlue/2, hbBlue, hbBlue);
         gCtx2.restore();
@@ -2309,7 +2421,7 @@ function drawG(){
   gCtx2.fillStyle = gGrad;
   gCtx2.fillRect(0, baseFloorY - 2, logicalW, 4);
 
-  if(gMode==='ship' || gMode==='wave' || shipTransAnim > 0){
+  if(gMode==='ship' || gMode==='wave' || gMode==='ufo' || shipTransAnim > 0){
     let startCeilY = sY(tunnelCeil) - logicalH;
     let animCeilY = startCeilY + (sY(tunnelCeil) - startCeilY) * eased;
     gCtx2.fillRect(0, animCeilY - 2, logicalW, 4);
