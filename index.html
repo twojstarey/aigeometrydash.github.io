@@ -276,6 +276,7 @@ const SRC={
   ship:'https://i.imgur.com/CLUsNln.png',
   ufo:'https://i.imgur.com/Fn3UQty.png',
   wave:'https://i.imgur.com/tvA1vnp.png',
+  ball:'https://i.imgur.com/2WLqWUJ.png',
   ground:'https://i.imgur.com/HCFkqKg.png', 
   spike:'https://i.imgur.com/9DwKJb2.png',
   jump_pad:'https://i.imgur.com/H7VvNeF.png',
@@ -291,12 +292,14 @@ const SRC={
   ship_port:'https://i.imgur.com/zxT7Z80.png',
   ufo_port:'https://i.imgur.com/2oHUMN8.png',
   wave_port:'https://i.imgur.com/HJWopPf.png',
+  ball_port:'https://i.imgur.com/RGmIEz6.png',
   mini_port:'https://i.imgur.com/PR26SAd.png',
   norm_port:'https://i.imgur.com/OQkuCn5.png',
   grav_rev_port:'https://i.imgur.com/DDc7zyq.png',
   grav_norm_port:'https://i.imgur.com/naqFZGf.png',
   orb:'https://i.imgur.com/ysH0qCh.png',
   pink_orb:'https://i.imgur.com/vjWVHQ2.png',
+  blue_orb:'https://i.imgur.com/Ux3VWbe.png',
   deco1:'https://i.imgur.com/Mp27IWo.png',
   deco2:'https://i.imgur.com/omTYQuo.png',
   bg_trigger:'https://i.imgur.com/zsf7WEb.png',
@@ -343,10 +346,12 @@ const TYPES=[
   {id:'jump_pad', lbl:'Jump Pad',    img:'jump_pad', w:1.2,  h:0.2, kind:'pad',   solid:false},
   {id:'orb',      lbl:'Y. Orb',      img:'orb',      w:1,    h:1,   kind:'orb',   solid:false},
   {id:'pink_orb', lbl:'P. Orb',      img:'pink_orb', w:1,    h:1,   kind:'orb',   solid:false},
+  {id:'blue_orb', lbl:'B. Orb',      img:'blue_orb', w:1,    h:1,   kind:'orb',   solid:false},
   {id:'cube_port',lbl:'Cube\nPortal',img:'cube_port',w:1.4,  h:2.7, kind:'pcube', solid:false},
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
   {id:'ufo_port', lbl:'UFO\nPortal', img:'ufo_port', w:1.4,  h:2.7, kind:'pufo',  solid:false},
   {id:'wave_port',lbl:'Wave\nPortal',img:'wave_port',w:1.4,  h:2.7, kind:'pwave', solid:false},
+  {id:'ball_port',lbl:'Ball\nPortal',img:'ball_port',w:1.4,  h:2.7, kind:'pball', solid:false},
   {id:'mini_port',lbl:'Mini\nPortal',img:'mini_port',w:1.4,  h:2.7, kind:'pmini', solid:false},
   {id:'norm_port',lbl:'Norm\nPortal',img:'norm_port',w:1.4,  h:2.7, kind:'pnorm', solid:false},
   {id:'grav_rev_port',lbl:'Rev Grav\nPortal',img:'grav_rev_port',w:1.4,h:2.7,kind:'pgravrev',solid:false},
@@ -1269,6 +1274,7 @@ let orbAnims=[];
 let padEffects=[];
 let deathParticles=[], deathWave=0, respawnTimer=0, gAttemptTextTimer=0;
 let playerParticles =[];
+let shakeTimer = 0;
 
 function sX(wx) { return wx - gCamX; }
 function sY(wy) { return wy - gCamY + (gC ? (gC.height / gZoom) / 2 : 0); }
@@ -1281,7 +1287,7 @@ function startGame(lv,fe){
   $('g-title').textContent=lv.name;
   hbx2=false;gMode='cube'; gravityDir=1; isMini=false; dead=false;won=false;jHeld=false;jPrev=false;jumpBuf=0;
   orbAnims=[]; padEffects=[];
-  deathParticles=[]; deathWave=0; respawnTimer=0;
+  deathParticles=[]; deathWave=0; respawnTimer=0; shakeTimer=0;
   
   if(fromEd) playTrail =[];
 
@@ -1299,7 +1305,7 @@ function startGame(lv,fe){
       o.offsetX = 0;
       o.offsetY = 0;
       o.renderOpac = 1;
-      o.orbUsed = false; 
+      o.orbUsed = false;
   });
   window.activeMoves =[];
   window.activeAlphas =[];
@@ -1415,6 +1421,7 @@ function gLoop(ts){
 
 function updateDeath(dt) {
     respawnTimer -= dt;
+    if(shakeTimer > 0) shakeTimer -= dt;
     deathWave += dt * 350;
     deathParticles.forEach(p => {
         p.vy += GRAVITY * dt * 0.45;
@@ -1440,9 +1447,10 @@ function updateG(dt){
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(dataArray);
       let sum = 0;
-      for (let i = 0; i < 8; i++) sum += dataArray[i];
-      let avg = sum / 8;
-      musicPulse = 1 + (avg / 255) * 0.35;
+      for (let i = 0; i < 3; i++) sum += dataArray[i];
+      let avg = sum / 3;
+      let targetPulse = 1 + Math.pow(avg / 255, 2) * 0.6;
+      musicPulse += (targetPulse - musicPulse) * 20 * dt;
   } else {
       musicPulse = 1.0;
   }
@@ -1480,8 +1488,8 @@ function updateG(dt){
   player.x+=PLAYER_SPD*dt;
   gCamX=player.x-logicalW*0.3;
 
-  let isTunnel = (gMode === 'ship' || gMode === 'wave' || gMode === 'ufo');
-  let wasTunnel = (prevGMode === 'ship' || prevGMode === 'wave' || prevGMode === 'ufo');
+  let isTunnel = (gMode === 'ship' || gMode === 'wave' || gMode === 'ufo' || gMode === 'ball');
+  let wasTunnel = (prevGMode === 'ship' || prevGMode === 'wave' || prevGMode === 'ufo' || prevGMode === 'ball');
   if(gMode !== prevGMode){
     if(isTunnel !== wasTunnel) {
         shipTransDir = isTunnel ? 1 : -1;
@@ -1581,7 +1589,7 @@ function updateG(dt){
         }
     }
 
-    if (!player.onGround) player.rot += (isMini ? 500 : 420) * dt * gravityDir;
+    if (!player.onGround) player.rot += (isMini ? 500 : 440) * dt * gravityDir;
 
   } else if (gMode === 'ship') {
     let curShipThrust = SHIP_THRUST * (isMini ? 0.85 : 1);
@@ -1707,6 +1715,77 @@ function updateG(dt){
     }
 
     if(!dead) pWaveTrail.push({x: player.x, y: player.y, mini: isMini});
+  } else if (gMode === 'ball') {
+    let currentGravity = isMini ? 4951 : GRAVITY;
+    player.vy += currentGravity * gravityDir * dt;
+    player.y += player.vy * dt;
+
+    player.onGround = false;
+    let landingY = gravityDir === 1 ? Infinity : -Infinity;
+
+    let pEdge = player.y + pLandHH * gravityDir;
+    let pPrevEdge = player.y - player.vy*dt + pLandHH * gravityDir;
+
+    for(const obj of curLv.objs) {
+        const t = td(obj.typeId);
+        if (!t.solid) continue;
+        const ox = obj.x + (obj.offsetX || 0);
+        const oy = obj.y + (obj.offsetY || 0);
+        const sc = obj.scale || 1;
+        const hw = t.w * TILE * sc / 2, hh = t.h * TILE * sc / 2;
+
+        if (Math.abs(player.x - ox) > hw + Math.max(TILE/2, pLandHH)) continue; 
+
+        if (t.kind === 'block') {
+            let surfaceY = oy - hh * gravityDir;
+            if (gravityDir === 1) {
+                if (pEdge >= surfaceY && pPrevEdge <= surfaceY + 1) {
+                    if (surfaceY < landingY) landingY = surfaceY;
+                }
+            } else {
+                if (pEdge <= surfaceY && pPrevEdge >= surfaceY - 1) {
+                    if (surfaceY > landingY) landingY = surfaceY;
+                }
+            }
+        }
+    }
+
+    if (gravityDir === 1) {
+        if (pEdge >= tunnelFloor && pPrevEdge <= tunnelFloor + 1) {
+            if (tunnelFloor < landingY) landingY = tunnelFloor;
+        }
+        if (landingY !== Infinity) {
+            player.y = landingY - pLandHH;
+            player.vy = 0; player.onGround = true;
+        }
+        let ballRadius = TILE * 0.45 * pScale;
+        if (player.y - ballRadius <= tunnelCeil) {
+            player.y = tunnelCeil + ballRadius;
+            if (player.vy < 0) player.vy = 0;
+        }
+    } else {
+        if (pEdge <= tunnelCeil && pPrevEdge >= tunnelCeil - 1) {
+            if (tunnelCeil > landingY) landingY = tunnelCeil;
+        }
+        if (landingY !== -Infinity) {
+            player.y = landingY + pLandHH;
+            player.vy = 0; player.onGround = true;
+        }
+        let ballRadius = TILE * 0.45 * pScale;
+        if (player.y + ballRadius >= tunnelFloor) {
+            player.y = tunnelFloor - ballRadius;
+            if (player.vy > 0) player.vy = 0;
+        }
+    }
+
+    player.rot += 1260 * dt * gravityDir;
+
+    if (jHeld && jumpBuf > 0 && player.onGround) {
+        gravityDir *= -1;
+        player.vy = 0;
+        player.onGround = false;
+        jumpBuf = 0;
+    }
   }
   jPrev=jHeld;
   
@@ -1723,7 +1802,7 @@ function updateG(dt){
     const hw=t.w*TILE*sc/2,hh=t.h*TILE*sc/2;
     const dx=Math.abs(player.x-ox),dy=Math.abs(player.y-oy);
 
-    if(t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pufo' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm') {
+    if(t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pufo' || t.kind==='pball' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm') {
         if(dx < hw && dy < hh && !obj.activated) {
             obj.activated = true;
             if(t.kind==='pcube') {
@@ -1760,6 +1839,14 @@ function updateG(dt){
                 tunnelFloor = py + 6 * TILE;
                 if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 12 * TILE; }
                 else tunnelCeil = py - 6 * TILE;
+            } else if(t.kind==='pball') {
+                if (gMode !== 'ball') {
+                    gMode='ball'; player.vy=0;
+                }
+                let py = Math.round(oy / TILE) * TILE;
+                tunnelFloor = py + 5 * TILE;
+                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 10 * TILE; }
+                else tunnelCeil = py - 5 * TILE;
             } else if(t.kind==='pgravrev' && gravityDir !== -1) {
                 gravityDir = -1; player.vy = 0;
             } else if(t.kind==='pgravnorm' && gravityDir !== 1) {
@@ -1854,16 +1941,19 @@ function updateG(dt){
         if(dist < playerR + sawR) { die(); return; }
     } else if(t.kind==='pad'){
       if(player.vy * gravityDir >= 0 && dx < hw + pLandHH && dy < hh + pLandHH){
-          player.vy = (isMini ? -975 : -1250) * gravityDir; 
+          player.vy = (isMini ? -1600 : -2068) * gravityDir; 
           player.onGround=false;
           padEffects.push({x: ox, y: oy, t: 0});
       }
     } else if(t.kind==='orb'){
       if(!obj.orbUsed && jumpBuf > 0 && dx < hw + TILE*0.7 && dy < hh + TILE*0.7){
         if (obj.typeId === 'orb') {
-            player.vy = (isMini ? -975 : JUMP_V) * gravityDir; 
+            player.vy = (isMini ? -975 : -1250) * gravityDir; 
         } else if (obj.typeId === 'pink_orb') {
-            player.vy = (isMini ? -819 : -1050) * gravityDir; 
+            player.vy = (isMini ? -819 : -1180) * gravityDir; 
+        } else if (obj.typeId === 'blue_orb') {
+            gravityDir *= -1;
+            player.vy = (isMini ? -550 : -700) * gravityDir; 
         }
         player.onGround=false; obj.orbUsed=true;
         
@@ -1944,7 +2034,6 @@ function updateG(dt){
       return p.life > 0;
   });
 
-  player.wasOnSlope = player.onSlope;
   if(player.x>=lvEnd){ won=true;show('win-screen','flex');$('win-screen').onclick=exitGame; }
   const pct=Math.min(100,Math.max(0,(player.x/lvEnd)*100));
   $('prog-fill').style.width=pct+'%'; $('g-pct').textContent=Math.floor(pct)+'%';
@@ -1953,6 +2042,7 @@ function updateG(dt){
 function die(){
   if(dead)return; dead=true; jHeld=false; jPrev=false; jumpBuf=0;
   attempts++; 
+  shakeTimer = 0.1;
   
   if (audioPlayer) {
       audioPlayer.pause();
@@ -1974,10 +2064,8 @@ function die(){
   
   if(gMode==='ship'){
     const ci=IM.cube, si=IM.ship;
-    // Inner Layer (Cube)
-    if(ok(ci)) ox.drawImage(ci, -TILE*0.25, -TILE*0.55, TILE*0.5, TILE*0.5);
-    else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.25,-TILE*0.55,TILE*0.5,TILE*0.5);}
-    // Outer Layer (Ship Shell)
+    if(ok(ci)) ox.drawImage(ci, -TILE*0.25, -TILE*0.35, TILE*0.5, TILE*0.5);
+    else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.25,-TILE*0.35,TILE*0.5,TILE*0.5);}
     if(ok(si)) ox.drawImage(si, -TILE*0.7, -TILE*0.35, TILE*1.4, TILE*0.7);
     else {ox.fillStyle='rgba(255,140,0,.85)';ox.fillRect(-TILE*0.7,-TILE*0.35,TILE*1.4,TILE*0.7);}
   } else if (gMode==='ufo'){
@@ -1986,6 +2074,10 @@ function die(){
     else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.25,-TILE*0.35,TILE*0.5,TILE*0.5);}
     if(ok(ui)) ox.drawImage(ui, -TILE*0.7, -TILE*0.55, TILE*1.4, TILE*1.1);
     else {ox.fillStyle='#aaa';ox.beginPath();ox.arc(0,0,TILE*0.5,0,Math.PI*2);ox.fill();}
+  } else if (gMode==='ball'){
+    const bi=IM.ball;
+    if(ok(bi)) ox.drawImage(bi, -TILE*0.45, -TILE*0.45, TILE*0.9, TILE*0.9);
+    else {ox.fillStyle='#7DF';ox.beginPath();ox.arc(0,0,TILE*0.45,0,Math.PI*2);ox.fill();}
   } else if (gMode==='wave'){
     const wi=IM.wave;
     if(ok(wi)) ox.drawImage(wi, -TILE*0.5, -TILE*0.45, TILE*1.0, TILE*0.9);
@@ -2008,7 +2100,6 @@ function die(){
           const sy = j * pSize;
           
           let hasPixels = false;
-          // Check if this slice has any visible pixels
           for(let px = Math.floor(sx); px < Math.floor(sx + pSize); px += 2){
               for(let py = Math.floor(sy); py < Math.floor(sy + pSize); py += 2){
                   const alpha = imgData[(py * 128 + px) * 4 + 3];
@@ -2045,8 +2136,14 @@ function die(){
 function drawG(){
   const W=gC.width, H=gC.height;
   gCtx2.clearRect(0,0,W,H);
-  let curHexCol = rgbToHex(gBgCol[0], gBgCol[1], gBgCol[2]);
   
+  let actualCamX = gCamX, actualCamY = gCamY;
+  if (shakeTimer > 0) {
+      gCamX += (Math.random() - 0.5) * 16;
+      gCamY += (Math.random() - 0.5) * 16;
+  }
+
+  let curHexCol = rgbToHex(gBgCol[0], gBgCol[1], gBgCol[2]);
   drawBg(gCtx2, W, H, gCamX, gCamY, curHexCol, gBgOpac); 
 
   gCtx2.save();
@@ -2085,7 +2182,7 @@ function drawG(){
   gGrad.addColorStop(0.95, 'rgba(255,255,255,1)');
   gGrad.addColorStop(1, 'rgba(255,255,255,0)');
 
-  if(gMode==='ship' || gMode==='wave' || gMode==='ufo' || shipTransAnim > 0){
+  if(gMode==='ship' || gMode==='wave' || gMode==='ufo' || gMode==='ball' || shipTransAnim > 0){
     let startCeilY = sY(tunnelCeil) - logicalH;
     let animCeilY = startCeilY + (sY(tunnelCeil) - startCeilY) * eased;
     let ceilTop = animCeilY - GROUND_TS;
@@ -2130,7 +2227,6 @@ function drawG(){
   curLv.objs.forEach(obj=>{
     const t=td(obj.typeId),sc=obj.scale||1;
     
-    // D blocks are invisible in game
     if(t.kind==='dblock') return;
     
     let opac = obj.renderOpac !== undefined ? obj.renderOpac : 1;
@@ -2192,6 +2288,7 @@ function drawG(){
       if(ok(img)){
         if (drawGlow) {
             if(obj.typeId === 'pink_orb') gCtx2.shadowColor = '#FF55FF';
+            else if(obj.typeId === 'blue_orb') gCtx2.shadowColor = '#00AAFF';
             else gCtx2.shadowColor = '#FFD700';
             gCtx2.shadowBlur = 30 * glowAlpha * opac;
         }
@@ -2229,6 +2326,7 @@ function drawG(){
         gCtx2.globalAlpha = (1 - ringP) * 0.8 * opac; 
         gCtx2.save(); gCtx2.scale(ringScale, ringScale);
         if(anim.type === 'pink_orb') gCtx2.strokeStyle = '#FF55FF';
+        else if(anim.type === 'blue_orb') gCtx2.strokeStyle = '#00AAFF';
         else gCtx2.strokeStyle = '#FFD700';
         gCtx2.lineWidth = 4;
         gCtx2.beginPath(); gCtx2.arc(0,0,sw*0.55,0,Math.PI*2); gCtx2.stroke();
@@ -2248,7 +2346,7 @@ function drawG(){
         gCtx2.strokeStyle='rgba(255,80,80,.9)'; gCtx2.lineWidth=2;
         gCtx2.beginPath(); gCtx2.arc(0,0,TILE*0.75*sc,0,Math.PI*2); gCtx2.stroke();
       }
-      else if(t.kind==='trigger' || t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pufo' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm'){ gCtx2.strokeStyle='rgba(100,255,100,.9)'; gCtx2.lineWidth=2; gCtx2.strokeRect(-sw/2,-sh/2,sw,sh); }
+      else if(t.kind==='trigger' || t.kind==='pcube' || t.kind==='pship' || t.kind==='pwave' || t.kind==='pufo' || t.kind==='pball' || t.kind==='pgravrev' || t.kind==='pgravnorm' || t.kind==='pmini' || t.kind==='pnorm'){ gCtx2.strokeStyle='rgba(100,255,100,.9)'; gCtx2.lineWidth=2; gCtx2.strokeRect(-sw/2,-sh/2,sw,sh); }
     }
     gCtx2.restore();
     gCtx2.globalAlpha = 1; 
@@ -2343,6 +2441,10 @@ function drawG(){
         // Outer Layer (UFO Shell)
         if(ok(ui)) gCtx2.drawImage(ui, -TILE*0.7, -TILE*0.55, TILE*1.4, TILE*1.1);
         else {gCtx2.fillStyle='#aaa';gCtx2.beginPath();gCtx2.arc(0,0,TILE*0.5,0,Math.PI*2);gCtx2.fill();}
+      } else if (gMode==='ball'){
+        const bi=IM.ball;
+        if(ok(bi)) gCtx2.drawImage(bi, -TILE*0.45, -TILE*0.45, TILE*0.9, TILE*0.9);
+        else {gCtx2.fillStyle='#7DF';gCtx2.beginPath();gCtx2.arc(0,0,TILE*0.45,0,Math.PI*2);gCtx2.fill();}
       } else if (gMode==='wave'){
         const wi=IM.wave;
         if(ok(wi)) gCtx2.drawImage(wi, -TILE*0.5, -TILE*0.45, TILE*1.0, TILE*0.9);
@@ -2353,7 +2455,7 @@ function drawG(){
       }
       if(hbx2){ 
         gCtx2.strokeStyle='rgba(139,0,0,.95)'; gCtx2.lineWidth=2; 
-        const _hbs = (gMode==='wave' || gMode==='ufo') ? TILE*0.6 : TILE; 
+        const _hbs = (gMode==='wave' || gMode==='ufo' || gMode==='ball') ? TILE*0.6 : TILE; 
         gCtx2.strokeRect(-_hbs/2,-_hbs/2,_hbs,_hbs); 
       }
       gCtx2.restore();
@@ -2362,6 +2464,7 @@ function drawG(){
         let hbRed = TILE * pScale, hbBlue = TILE * 0.30 * pScale;
         if(gMode==='wave'){ hbRed = TILE*0.14 * pScale; hbBlue = TILE*0.07 * pScale; }
         if(gMode==='ufo'){ hbRed = TILE*0.5 * pScale; hbBlue = TILE*0.2 * pScale; }
+        if(gMode==='ball'){ hbRed = TILE*0.45 * pScale; hbBlue = TILE*0.25 * pScale; }
         gCtx2.strokeStyle= gMode==='wave' ? 'rgba(139,0,0,.95)' : 'rgba(255,100,100,.9)'; gCtx2.lineWidth=2; gCtx2.strokeRect(-hbRed/2, -hbRed/2, hbRed, hbRed);
         gCtx2.strokeStyle='rgba(60,60,255,.9)'; gCtx2.strokeRect(-hbBlue/2, -hbBlue/2, hbBlue, hbBlue);
         gCtx2.restore();
@@ -2383,7 +2486,7 @@ function drawG(){
   gCtx2.fillStyle = gGrad;
   gCtx2.fillRect(0, baseFloorY - 2, logicalW, 4);
 
-  if(gMode==='ship' || gMode==='wave' || gMode==='ufo' || shipTransAnim > 0){
+  if(gMode==='ship' || gMode==='wave' || gMode==='ufo' || gMode==='ball' || shipTransAnim > 0){
     let startCeilY = sY(tunnelCeil) - logicalH;
     let animCeilY = startCeilY + (sY(tunnelCeil) - startCeilY) * eased;
     gCtx2.fillRect(0, animCeilY - 2, logicalW, 4);
@@ -2395,6 +2498,8 @@ function drawG(){
     }
   }
   
+  gCamX = actualCamX; 
+  gCamY = actualCamY;
   gCtx2.restore(); 
 }
 
