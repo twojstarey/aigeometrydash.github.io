@@ -65,7 +65,7 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 .ep-row input[type="checkbox"]{width:20px;height:20px;cursor:pointer;}
 #btn-edit-obj{top:65px; display:none;}
 
-#edit-bg-grp, #edit-alpha-grp, #edit-move-grp, #edit-deco-grp {
+#edit-bg-grp, #edit-alpha-grp, #edit-move-grp, #edit-rotate-grp, #edit-deco-grp {
     display: none; flex-direction: column; gap: 9px; margin-top: 5px; border-top: 1px solid #456; padding-top: 10px;
 }
 
@@ -196,6 +196,13 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
       <div class="ep-row"><span>Touch Trigger:</span> <input type="checkbox" id="move-touch"></div>
     </div>
 
+    <div id="edit-rotate-grp">
+      <div class="ep-row"><span>Target Group ID:</span> <input type="number" id="rotate-target" min="0"></div>
+      <div class="ep-row"><span>Degrees:</span> <input type="number" id="rotate-deg"></div>
+      <div class="ep-row"><span>Move Time (s):</span> <input type="number" id="rotate-time" step="0.1" min="0"></div>
+      <div class="ep-row"><span>Touch Trigger:</span> <input type="checkbox" id="rotate-touch"></div>
+    </div>
+
     <div id="edit-deco-grp">
       <div class="ep-row"><span>Color Tint:</span> <input type="color" id="deco-col"></div>
     </div>
@@ -311,6 +318,7 @@ const SRC={
   ground_trigger:'https://i.imgur.com/55QWy7m.png',
   alpha_trigger:'https://i.imgur.com/sa2bFKP.png',
   move_trigger:'https://i.imgur.com/MpXaj91.png',
+  rotate_trigger:'https://i.imgur.com/RPDc06M.png',
   saw:'https://i.imgur.com/eRhUsPU.png'
 };
 const IM={};
@@ -369,7 +377,8 @@ const TYPES=[
   {id:'bg_trigger',lbl:'BG\nTrigger',img:'bg_trigger',w:0.8, h:1,   kind:'trigger',solid:false},
   {id:'ground_trigger',lbl:'GND\nTrigger',img:'ground_trigger',w:0.8,h:1,kind:'trigger',solid:false},
   {id:'alpha_trigger',lbl:'Alpha\nTrigger',img:'alpha_trigger',w:1.2,h:1,kind:'trigger',solid:false},
-  {id:'move_trigger',lbl:'Move\nTrigger',img:'move_trigger',w:1,h:1,kind:'trigger',solid:false}
+  {id:'move_trigger',lbl:'Move\nTrigger',img:'move_trigger',w:1,h:1,kind:'trigger',solid:false},
+  {id:'rotate_trigger',lbl:'Rotate\nTrigger',img:'rotate_trigger',w:1,h:1,kind:'trigger',solid:false}
 ];
 function td(id){return TYPES.find(t=>t.id===id)||TYPES[0];}
 
@@ -701,7 +710,7 @@ let activeMenu = null;
 function openActiveMenu() {
     if(selObjs.length === 0) return;
 
-    hide('edit-bg-grp'); hide('edit-alpha-grp'); hide('edit-move-grp'); hide('edit-deco-grp');
+    hide('edit-bg-grp'); hide('edit-alpha-grp'); hide('edit-move-grp'); hide('edit-rotate-grp'); hide('edit-deco-grp');
 
     if (selObjs.length === 1) {
         const o = selObjs[0];
@@ -733,7 +742,13 @@ function openActiveMenu() {
             $('move-y').value = o.moveY !== undefined ? o.moveY : 0;
             $('move-time').value = o.moveTime !== undefined ? o.moveTime : 0.5;
             $('move-touch').checked = !!o.bgTouch;
-        } else if (type.isDeco || type.kind === 'pulse_deco') {
+        } else if (o.typeId === 'rotate_trigger') {
+            $('edit-rotate-grp').style.display = 'flex';
+            $('rotate-target').value = o.targetId || 0;
+            $('rotate-deg').value = o.rotateDeg !== undefined ? o.rotateDeg : 90;
+            $('rotate-time').value = o.rotateTime !== undefined ? o.rotateTime : 0.5;
+            $('rotate-touch').checked = !!o.bgTouch;
+        } else if (type.isDeco) {
             $('edit-deco-grp').style.display = 'flex';
             $('deco-col').value = o.color || '#ffffff';
         }
@@ -773,6 +788,11 @@ function applyInput(id, val) {
         if(id==='move-y') o.moveY = parseFloat(val);
         if(id==='move-time') o.moveTime = parseFloat(val);
         if(id==='move-touch') o.bgTouch = val;
+        
+        if(id==='rotate-target') o.targetId = parseInt(val) || 0;
+        if(id==='rotate-deg') o.rotateDeg = parseFloat(val);
+        if(id==='rotate-time') o.rotateTime = parseFloat(val);
+        if(id==='rotate-touch') o.bgTouch = val;
 
         if(id==='deco-col') o.color = val;
     });
@@ -782,6 +802,7 @@ function applyInput(id, val) {
 function bindTrigInputs(){['obj-group','trig-col','trig-fade','trig-opac','trig-touch',
    'alpha-target','alpha-opac','alpha-time','alpha-touch',
    'move-target','move-x','move-y','move-time','move-touch',
+   'rotate-target','rotate-deg','rotate-time','rotate-touch',
    'deco-col'
   ].forEach(id=>{
     const el = $(id);
@@ -1057,7 +1078,7 @@ function delSel(){
 
 function placeObj(wx,wy){
   const t=selType,sc=selScale;
-  const step = (t.id === 'half_block' || t.id === 'small_spk' || t.id === 'black_spk' || t.isDeco || t.kind === 'pulse_deco') ? TILE/2 : TILE;
+  const step = (t.id === 'half_block' || t.id === 'small_spk' || t.id === 'black_spk' || t.isDeco) ? TILE/2 : TILE;
   const sw = t.w * TILE * sc;
   const sh = t.h * TILE * sc;
   
@@ -1207,7 +1228,7 @@ function drawEd(){
         edCtx.drawImage(img,-sw/2,-sh/2,sw,sh);
       }
       
-      if (t.id === 'alpha_trigger' || t.id === 'move_trigger') {
+      if (t.id === 'alpha_trigger' || t.id === 'move_trigger' || t.id === 'rotate_trigger') {
         edCtx.font = `${32 * sc * camZoom}px Pusab, Arial`;
         edCtx.textAlign = 'center';
         edCtx.textBaseline = 'middle';
@@ -1316,9 +1337,11 @@ function startGame(lv,fe){
       o.offsetY = 0;
       o.renderOpac = 1;
       o.orbUsed = false;
+      o.rotOffset = 0; 
   });
   window.activeMoves =[];
   window.activeAlphas =[];
+  window.activeRotates =[];
 
   let baseCol = hexToRgb(bgColor);
   gBgCol =[...baseCol]; gBgTarget =[...baseCol];
@@ -1351,9 +1374,9 @@ function resetPl(){
   gravityDir = 1;
   isMini = false;
   player={x:TILE*3,y:GROUND_Y-TILE*0.5,vy:0,rot:0,rotV:0,onGround:false,slopeTargetRot:0,onSlope:false,wasOnSlope:false};
-  gZoom = gC ? gC.height / 820 : 1; 
+  gZoom = gC ? gC.height / 760 : 1; 
   const logicalW = gC ? gC.width / gZoom : innerWidth;
-  const logicalH = gC ? gC.height / gZoom : 820;
+  const logicalH = gC ? gC.height / gZoom : 760;
   
   tunnelFloor = GROUND_Y;
   tunnelCeil = CEIL_Y;
@@ -1392,6 +1415,7 @@ function respawn(){
 
   window.activeMoves =[];
   window.activeAlphas =[];
+  window.activeRotates =[];
 
   let baseCol = hexToRgb(bgColor);
   gBgCol =[...baseCol]; gBgTarget =[...baseCol]; gBgFadeT = 0; gBgFadeDur = 0;
@@ -1406,6 +1430,7 @@ function respawn(){
       o.offsetY = 0;
       o.renderOpac = 1;
       o.orbUsed = false;
+      o.rotOffset = 0; 
   });
   lastT=performance.now();gRun=true;gAF=requestAnimationFrame(gLoop);
   
@@ -1448,7 +1473,7 @@ function updateDeath(dt) {
 }
 
 function updateG(dt){
-  gZoom = gC.height / 820; 
+  gZoom = gC.height / 700;
   const logicalW = gC.width / gZoom;
   const logicalH = gC.height / gZoom;
 
@@ -1496,6 +1521,20 @@ function updateG(dt){
               let eased = (1 - Math.cos(Math.PI * p)) / 2;
               m.obj.offsetX = lerp(m.startX, m.endX, eased);
               m.obj.offsetY = lerp(m.startY, m.endY, eased);
+          }
+      }
+  }
+  if(window.activeRotates) {
+      for(let i = window.activeRotates.length - 1; i >= 0; i--) {
+          let r = window.activeRotates[i];
+          r.time += dt;
+          if(r.time >= r.dur) {
+              r.obj.rotOffset = r.endRot;
+              window.activeRotates.splice(i, 1);
+          } else {
+              let p = r.time / r.dur;
+              let eased = (1 - Math.cos(Math.PI * p)) / 2;
+              r.obj.rotOffset = lerp(r.startRot, r.endRot, eased);
           }
       }
   }
@@ -1637,8 +1676,8 @@ function updateG(dt){
     }
     if (player.y - shipRadius > tunnelCeil && player.y + shipRadius < tunnelFloor) player.onGround = false;
     
-    const tgt = Math.max(-45, Math.min(45, player.vy * gravityDir * 0.045));
-    player.rot += (tgt - player.rot) * 15 * dt;
+    const tgt = Math.max(-50, Math.min(50, player.vy * 0.05));
+    player.rot += (tgt - player.rot) * 0.22;
   } else if (gMode === 'ufo') {
     let curGrav = isMini ? 3800 : 2700;
     player.vy += curGrav * gravityDir * dt;
@@ -1844,18 +1883,18 @@ function updateG(dt){
                     player.rot = player.rot % 360; if(player.rot > 180) player.rot -= 360; else if(player.rot < -180) player.rot += 360;
                 }
                 let py = Math.round(oy / TILE) * TILE;
-                tunnelFloor = py + 6 * TILE;
-                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 12 * TILE; }
-                else tunnelCeil = py - 6 * TILE;
+                tunnelFloor = py + 5 * TILE;
+                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 10 * TILE; }
+                else tunnelCeil = py - 5 * TILE;
             } else if(t.kind==='pufo') {
                 if (gMode !== 'ufo') {
                     gMode='ufo'; player.vy=0;
                     player.rot = player.rot % 360; if(player.rot > 180) player.rot -= 360; else if(player.rot < -180) player.rot += 360;
                 }
                 let py = Math.round(oy / TILE) * TILE;
-                tunnelFloor = py + 6 * TILE;
-                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 12 * TILE; }
-                else tunnelCeil = py - 6 * TILE;
+                tunnelFloor = py + 5 * TILE;
+                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 10 * TILE; }
+                else tunnelCeil = py - 5 * TILE;
             } else if(t.kind==='pwave') {
                 if (gMode !== 'wave') {
                     gMode='wave'; player.vy=0;
@@ -1863,17 +1902,17 @@ function updateG(dt){
                     pWaveTrail =[{x: player.x, y: player.y, mini: isMini}];
                 }
                 let py = Math.round(oy / TILE) * TILE;
-                tunnelFloor = py + 6 * TILE;
-                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 12 * TILE; }
-                else tunnelCeil = py - 6 * TILE;
+                tunnelFloor = py + 5 * TILE;
+                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 10 * TILE; }
+                else tunnelCeil = py - 5 * TILE;
             } else if(t.kind==='pball') {
                 if (gMode !== 'ball') {
                     gMode='ball'; player.vy=0;
                 }
                 let py = Math.round(oy / TILE) * TILE;
-                tunnelFloor = py + 5 * TILE;
-                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 10 * TILE; }
-                else tunnelCeil = py - 5 * TILE;
+                tunnelFloor = py + 4 * TILE;
+                if(tunnelFloor > GROUND_Y) { tunnelFloor = GROUND_Y; tunnelCeil = tunnelFloor - 8 * TILE; }
+                else tunnelCeil = py - 4 * TILE;
             } else if(t.kind==='pgravrev' && gravityDir !== -1) {
                 gravityDir = -1; player.vy = 0;
             } else if(t.kind==='pgravnorm' && gravityDir !== 1) {
@@ -1937,24 +1976,38 @@ function updateG(dt){
                             });
                         });
                     }
+                } else if (obj.typeId === 'rotate_trigger') {
+                    let dur = parseFloat(obj.rotateTime) || 0;
+                    let deg = obj.rotateDeg !== undefined ? parseFloat(obj.rotateDeg) : 90;
+                    let tid = obj.targetId || 0;
+                    let affected = curLv.objs.filter(x => x.groupId == tid);
+                    if(dur <= 0) {
+                        affected.forEach(x => x.rotOffset = (x.rotOffset || 0) + deg);
+                    } else {
+                        affected.forEach(x => {
+                            window.activeRotates = window.activeRotates.filter(m => m.obj !== x);
+                            window.activeRotates.push({
+                                obj: x, startRot: x.rotOffset || 0, endRot: (x.rotOffset || 0) + deg, time: 0, dur: dur
+                            });
+                        });
+                    }
                 }
             }
         }
     } else if(t.kind==='block'&&t.solid) {
-        if (gMode === 'wave') {
-            if (dx < hw + TILE*0.14*pScale && dy < hh + TILE*0.14*pScale) {
-                die(); return;
-            }
+        let totalRot = (obj.rot || 0) + (obj.rotOffset || 0);
+        // Only ignore AABB overlap if it's visually rotated weirdly, else standard check
+        if (totalRot % 90 !== 0) continue; // In 2D, rotating simple solid blocks breaks AABB.
+
+        if (dx < hw + pBlueHW && dy < hh + pBlueHH) { die(); return; }
+        if (gravityDir === 1) {
+            if (player.vy < 0 && dy < hh + pLandHH && dx < hw + pLandHH && player.y > oy) { die(); return; }
         } else {
-            if (dx < hw + pBlueHW && dy < hh + pBlueHH) { die(); return; }
-            if (gravityDir === 1) {
-                if (player.vy < 0 && dy < hh + pLandHH && dx < hw + pLandHH && player.y > oy) { die(); return; }
-            } else {
-                if (player.vy > 0 && dy < hh + pLandHH && dx < hw + pLandHH && player.y < oy) { die(); return; }
-            }
+            if (player.vy > 0 && dy < hh + pLandHH && dx < hw + pLandHH && player.y < oy) { die(); return; }
         }
     } else if(t.kind==='spike'){
-      const rad = -(obj.rot || 0) * Math.PI / 180;
+      let totalRot = (obj.rot || 0) + (obj.rotOffset || 0);
+      const rad = -totalRot * Math.PI / 180;
       const cos = Math.cos(rad), sin = Math.sin(rad);
       const pxLocal = (player.x - ox) * cos - (player.y - oy) * sin;
       const pyLocal = (player.x - ox) * sin + (player.y - oy) * cos;
@@ -2258,6 +2311,7 @@ function drawG(){
   curLv.objs.forEach(obj=>{
     const t=td(obj.typeId),sc=obj.scale||1;
     
+    // D blocks are invisible in game
     if(t.kind==='dblock') return;
     
     let opac = obj.renderOpac !== undefined ? obj.renderOpac : 1;
@@ -2268,7 +2322,7 @@ function drawG(){
     const sx=sX(ox),sy=sY(oy); 
     if(sx<-TILE*4||sx>logicalW+TILE*4)return;
     
-    let baseRot=(obj.rot||0)*Math.PI/180;
+    let baseRot = ((obj.rot || 0) + (obj.rotOffset || 0)) * Math.PI/180;
     if(t.kind==='saw') baseRot += performance.now() * 0.005;
 
     let sw=t.w*TILE*sc, sh=t.h*TILE*sc;
@@ -2339,7 +2393,7 @@ function drawG(){
 
         if (drawGlow) gCtx2.shadowBlur = 0;
         
-        if (t.id === 'alpha_trigger' || t.id === 'move_trigger') {
+        if (t.id === 'alpha_trigger' || t.id === 'move_trigger' || t.id === 'rotate_trigger') {
           gCtx2.font = `${32 * sc * camZoom}px Pusab, Arial`;
           gCtx2.textAlign = 'center';
           gCtx2.textBaseline = 'middle';
