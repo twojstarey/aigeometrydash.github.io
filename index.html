@@ -15,13 +15,14 @@
 body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hidden;user-select:none;}
 #menu{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:100;}
 #menu-bg{position:absolute;inset:0;width:100%;height:100%;}
-#menu .ui{position:relative;z-index:2;text-align:center;}
-#menu h1{font-size:60px;color:#FFD700;text-shadow:0 0 28px #FFD700,4px 4px 0 #8B4513;letter-spacing:4px;margin-bottom:6px;}
-#menu h2{font-size:24px;color:#7DF;margin-bottom:44px;}
-.mbtn{display:block;width:290px;padding:13px;margin:9px auto;font-size:19px;font-weight:900;border:none;border-radius:12px;cursor:pointer;transition:transform .12s;letter-spacing:2px;text-transform:uppercase;}
-.mbtn:hover{transform:scale(1.07);}
-.mg{background:linear-gradient(135deg,#2ECC40,#27AE60);color:#fff;box-shadow:0 5px 0 #1a7a30;}
-.mb{background:linear-gradient(135deg,#3498DB,#2980B9);color:#fff;box-shadow:0 5px 0 #1a5a8a;}
+#menu .ui{position:relative;z-index:2;text-align:center;transform:translateY(-100px);}
+#menu-logo{max-width:1200px; margin-bottom:70px; display:block; margin-left:auto; margin-right:auto;}
+#menu-buttons{display:flex; align-items:center; justify-content:center; gap:40px;}
+.menu-btn-img{cursor:pointer; transition:transform 0.15s;}
+.menu-btn-img:hover{transform:scale(1.08);}
+#btn-create{width:190px; height:190px; object-fit:contain;}
+#btn-play{width:250px; height:250px; object-fit:contain;}
+
 #levels-screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;z-index:100;}
 #lvl-bg{position:absolute;inset:0;width:100%;height:100%;}
 #levels-screen .ui{position:relative;z-index:2;width:660px;padding-top:26px;}
@@ -109,21 +110,71 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 /* Custom Progress Bar and Percent */
 #prog-wrap{position:absolute;top:15px;left:50%;transform:translateX(-50%);width:280px;height:12px;background:rgba(0,0,0,0.4);border:2px solid #fff;border-radius:10px;overflow:hidden;box-shadow:0 0 4px #000;}
 #prog-fill{width:0%;height:100%;background:#00FF00;}
-#g-pct{position:absolute;top:34px;left:50%;transform:translateX(-50%);font-size:15px;font-weight:900;color:#fff;text-shadow:2px 2px 0 #000, -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000;letter-spacing:1px;}
+#g-pct{position:absolute;top:32px;left:50%;transform:translateX(-50%);font-size:16px;font-weight:900;color:#fff;-webkit-text-stroke:1px #000;letter-spacing:1px;}
 
 #win-screen{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:50;cursor:pointer;}
 #win-screen h2{font-size:54px;color:#FFD700;text-shadow:4px 4px 0 #8B4513;}
 #win-screen p{font-size:20px;color:#fff;margin-top:7px;}
+
+/* Transition Screen */
+#trans-ov {
+    position: fixed;
+    inset: 0;
+    background: #000;
+    z-index: 99999;
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* New Best Text */
+#new-best-container {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%) scale(0);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+    z-index: 60;
+    opacity: 0;
+}
+#new-best-container.show {
+    animation: newBestPop 2.5s forwards;
+}
+#new-best-container img {
+    width: 380px;
+}
+#new-best-pct {
+    font-size: 36px;
+    color: #fff;
+    -webkit-text-stroke: 2px #000;
+    margin-top: -10px;
+}
+
+@keyframes newBestPop {
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+    8% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+    14% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    85% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+}
+
 </style>
 </head>
 <body>
 
+<div id="trans-ov"></div>
+
 <div id="menu">
   <canvas id="menu-bg"></canvas>
   <div class="ui">
-    <h1>GEOMETRY DASH</h1><h2>EDITOR</h2>
-    <button class="mbtn mg" onclick="showLevels()">▶ MY LEVELS</button>
-    <button class="mbtn mb" onclick="newLevel()">✏ CREATE LEVEL</button>
+    <img src="https://i.imgur.com/rOMx1KY.png" alt="Geometry Dash Editor" id="menu-logo">
+    <div id="menu-buttons">
+      <img src="https://i.imgur.com/0mB4sil.png" alt="Create Level" class="menu-btn-img" id="btn-create" onclick="doTrans(newLevel)">
+      <img src="https://i.imgur.com/cHdGmtJ.png" alt="Play Levels" class="menu-btn-img" id="btn-play" onclick="doTrans(showLevels)">
+    </div>
   </div>
 </div>
 
@@ -134,7 +185,7 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
     <div id="levels-list"></div>
     <div style="display:flex; justify-content:center; gap:10px; margin-top:13px;">
       <button class="back-btn" style="margin:0;" onclick="document.getElementById('import-level-input').click()">📥 IMPORT</button>
-      <button class="back-btn" style="margin:0;" onclick="showMenu()">← BACK</button>
+      <button class="back-btn" style="margin:0;" onclick="doTrans(showMenu)">← BACK</button>
     </div>
     <input type="file" id="import-level-input" accept=".json" style="display:none;" onchange="handleImportLevel(event)">
   </div>
@@ -153,7 +204,7 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
     <button class="tb" onclick="saveState(); rotSel(15)">E▷</button>
     <div class="sep"></div>
     <button class="tb" style="border-color:#2ECC40;color:#2ECC40" onclick="saveLevel()">💾 SAVE</button>
-    <button class="tb" style="border-color:#3AF;color:#3AF"       onclick="testLevel()">▶ TEST</button>
+    <button class="tb" style="border-color:#3AF;color:#3AF"       onclick="doTrans(testLevel)">▶ TEST</button>
     
     <div id="hint">
       LMB Drag: Place / Move / Size | Middle Mouse / WASD: Pan<br>
@@ -211,11 +262,11 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
   <div id="esc-ov">
     <div id="esc-box">
       <h2>⚙ EDITOR MENU</h2>
-      <button class="ep epg"  onclick="escPlay()">▶ PLAY LEVEL</button>
+      <button class="ep epg"  onclick="doTrans(escPlay)">▶ PLAY LEVEL</button>
       <button class="ep epb"  onclick="escSave()">💾 SAVE LEVEL</button>
-      <button class="ep epp"  onclick="escSP()">▶ SAVE &amp; PLAY</button>
-      <button class="ep epo"  onclick="escSE()">💾 SAVE &amp; EXIT</button>
-      <button class="ep epr"  onclick="escExit()">← EXIT (no save)</button>
+      <button class="ep epp"  onclick="doTrans(escSP)">▶ SAVE &amp; PLAY</button>
+      <button class="ep epo"  onclick="doTrans(escSE)">💾 SAVE &amp; EXIT</button>
+      <button class="ep epr"  onclick="doTrans(escExit)">← EXIT (no save)</button>
       <div id="bg-row">
         <label>Level Start Background Color</label>
         <input id="bg-color-inp" type="color" value="#1a2a6c" oninput="setBgC(this.value)">
@@ -249,7 +300,13 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
     </div>
     <div id="g-pct">0%</div>
   </div>
-  <button id="g-back" onclick="exitGame()">← QUIT</button>
+  <button id="g-back" onclick="doTrans(exitGame)">← QUIT</button>
+  
+  <div id="new-best-container">
+      <img src="https://i.imgur.com/vcx8ynr.png" alt="NEW BEST">
+      <div id="new-best-pct">0%</div>
+  </div>
+  
   <div id="win-screen"><h2>🏆 COMPLETE!</h2><p>Click to continue</p></div>
 </div>
 
@@ -403,6 +460,20 @@ function initAudio() {
     } catch(e) { console.error("Audio API error:", e); }
 }
 
+function doTrans(fn) {
+    const el = $('trans-ov');
+    el.style.transition = 'opacity 0.1s';
+    el.style.opacity = '1';
+    el.style.pointerEvents = 'all';
+    
+    setTimeout(() => {
+        fn();
+        el.style.transition = 'opacity 0.2s';
+        el.style.opacity = '0';
+        el.style.pointerEvents = 'none';
+    }, 100);
+}
+
 function getLS(){
   try{
     const data = JSON.parse(localStorage.getItem('gd2')||'[]');
@@ -526,7 +597,42 @@ function menuBgLoop(cid,activeid){
   c.width=c.offsetWidth||innerWidth; c.height=c.offsetHeight||innerHeight;
   const ctx=c.getContext('2d');
   menuScroll+=0.35;
-  drawBg(ctx,c.width,c.height,menuScroll,0); 
+  
+  let time = performance.now() * 0.001;
+  let r = Math.floor(Math.sin(time * 0.5) * 60 + 60);
+  let g = Math.floor(Math.sin(time * 0.6 + 2) * 60 + 60);
+  let b = Math.floor(Math.sin(time * 0.7 + 4) * 60 + 150);
+  let dynColor = rgbToHex(r, g, b);
+  
+  drawBg(ctx,c.width,c.height,menuScroll,0, dynColor); 
+  
+  const tW = GROUND_TS;
+  const gsy = c.height - tW * 0.8;
+  
+  ctx.fillStyle='#000';
+  ctx.fillRect(0, gsy + tW, c.width, c.height);
+
+  ctx.fillStyle=dynColor;
+  ctx.fillRect(0,gsy,c.width,tW);
+  if(ok(IM.ground)){
+    ctx.globalCompositeOperation = 'multiply';
+    const sx0=((-menuScroll % tW) + tW) % tW - tW;
+    for(let tx=sx0;tx<c.width+tW;tx+=tW){
+      ctx.drawImage(IM.ground,tx,gsy,tW,tW);
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  } else {
+    ctx.fillStyle='#3a5520';ctx.fillRect(0,gsy,c.width,tW);
+  }
+
+  let menuGrad = ctx.createLinearGradient(0, 0, c.width, 0);
+  menuGrad.addColorStop(0, 'rgba(255,255,255,0)');
+  menuGrad.addColorStop(0.05, 'rgba(255,255,255,1)');
+  menuGrad.addColorStop(0.95, 'rgba(255,255,255,1)');
+  menuGrad.addColorStop(1, 'rgba(255,255,255,0)');
+  ctx.fillStyle = menuGrad;
+  ctx.fillRect(0, gsy - 2, c.width, 4);
+  
   if($(activeid).style.display!=='none') requestAnimationFrame(()=>menuBgLoop(cid,activeid));
 }
 
@@ -544,10 +650,13 @@ function renderList(){
   if(!lvs.length){el.innerHTML='<div class="empty">No levels yet!</div>';return;}
   el.innerHTML=lvs.map((lv,i)=>`
     <div class="lv-card">
-      <div><div class="lv-name">${eh(lv.name)}</div><div class="lv-info">${lv.objs.length} objs</div></div>
+      <div>
+        <div class="lv-name">${eh(lv.name)}</div>
+        <div class="lv-info">${lv.objs.length} objs | Best: ${lv.best || 0}%</div>
+      </div>
       <div class="lv-btns">
-        <button class="lb lp" onclick="playLevel(${i})">▶</button>
-        <button class="lb le" onclick="editLevel(${i})">✏</button>
+        <button class="lb lp" onclick="doTrans(()=>playLevel(${i}))">▶</button>
+        <button class="lb le" onclick="doTrans(()=>editLevel(${i}))">✏</button>
         <button class="lb" style="background:#f39c12;color:#fff;" onclick="exportLevel(${i})">⬇</button>
         <button class="lb ld" onclick="delLevel(${i})">✖</button>
       </div>
@@ -595,6 +704,23 @@ function handleImportLevel(event) {
         event.target.value = '';
     };
     reader.readAsText(file);
+}
+
+function checkNewBest(pct) {
+    if (fromEd) return;
+    if (pct > (curLv.best || 0)) {
+        curLv.best = pct;
+        const ls = getLS();
+        if (edIdx >= 0 && edIdx < ls.levels.length) {
+            ls.levels[edIdx].best = pct;
+            setLS(ls);
+        }
+        const nb = $('new-best-container');
+        $('new-best-pct').textContent = pct + '%';
+        nb.classList.remove('show');
+        void nb.offsetWidth; 
+        nb.classList.add('show');
+    }
 }
 
 // ── EDITOR STATE ──
@@ -1209,6 +1335,42 @@ function drawEd(){
     edCtx.restore();
   }
 
+  // Pass 1: Glows
+  edObjs.forEach(o=>{
+    const t=td(o.typeId),sc=o.scale||1;
+    const scr=w2s(o.x,o.y),sw=t.w*TILE*sc*camZoom,sh=t.h*TILE*sc*camZoom;
+    let baseRot=(o.rot||0)*Math.PI/180;
+    if(t.kind==='saw') baseRot += performance.now() * 0.003;
+    const isSel=selObjs.includes(o);
+
+    let drawGlow = false;
+    let gCol = 'transparent', gBlur = 0;
+    if(isSel){ gCol='#FFD700'; gBlur=16; drawGlow=true; }
+    else if ((t.kind === 'block' || t.kind === 'spike' || t.kind === 'saw') && !t.isDeco && t.id !== 'dblock') {
+        gCol='rgba(255, 255, 255, 0.6)'; gBlur=12 * camZoom; drawGlow=true;
+    }
+
+    if (drawGlow) {
+        edCtx.save();edCtx.translate(scr.x,scr.y);edCtx.rotate(baseRot);
+        edCtx.shadowColor = gCol;
+        edCtx.shadowBlur = gBlur;
+        const img=IM[t.img];
+        if(ok(img)) {
+            if (t.isDeco && o.color) {
+                const tinted = getTinted(img, o.color, Math.ceil(sw), Math.ceil(sh));
+                edCtx.drawImage(tinted, -sw/2, -sh/2, sw, sh);
+            } else {
+                edCtx.drawImage(img,-sw/2,-sh/2,sw,sh);
+            }
+        } else {
+            edCtx.fillStyle='#000';
+            edCtx.fillRect(-sw/2,-sh/2,sw,sh);
+        }
+        edCtx.restore();
+    }
+  });
+
+  // Pass 2: Objects
   edObjs.forEach(o=>{
     const t=td(o.typeId),sc=o.scale||1;
     const scr=w2s(o.x,o.y),sw=t.w*TILE*sc*camZoom,sh=t.h*TILE*sc*camZoom;
@@ -1217,13 +1379,23 @@ function drawEd(){
     const isSel=selObjs.includes(o);
 
     edCtx.save();edCtx.translate(scr.x,scr.y);edCtx.rotate(baseRot);
-    if(isSel){edCtx.shadowColor='#FFD700';edCtx.shadowBlur=16;}
     const img=IM[t.img];
     
     if(ok(img)) {
       if (t.isDeco && o.color) {
         const tinted = getTinted(img, o.color, Math.ceil(sw), Math.ceil(sh));
         edCtx.drawImage(tinted, -sw/2, -sh/2, sw, sh);
+      } else if (t.kind === 'dblock') {
+        edCtx.globalAlpha = 0.55;
+        edCtx.drawImage(img, -sw/2, -sh/2, sw, sh);
+        edCtx.globalAlpha = 1;
+        edCtx.save();
+        edCtx.setLineDash([6, 4]);
+        edCtx.strokeStyle = '#FF00FF';
+        edCtx.lineWidth = 2;
+        edCtx.strokeRect(-sw/2, -sh/2, sw, sh);
+        edCtx.setLineDash([]);
+        edCtx.restore();
       } else {
         edCtx.drawImage(img,-sw/2,-sh/2,sw,sh);
       }
@@ -1242,7 +1414,6 @@ function drawEd(){
       }
     }
     else{edCtx.fillStyle='#555';edCtx.fillRect(-sw/2,-sh/2,sw,sh);}
-    edCtx.shadowBlur=0;
     
     if(showHB){
       if(t.kind==='block'&&t.solid){
@@ -1291,8 +1462,8 @@ function saveLevel(){
   Object.assign(el.style,{position:'fixed',top:'18px',left:'50%',transform:'translateX(-50%)',background:'#2ECC40',color:'#fff',padding:'8px 24px',borderRadius:'10px',fontWeight:900,fontSize:'15px',zIndex:9999,pointerEvents:'none'});
   document.body.appendChild(el);setTimeout(()=>el.remove(),1400);
 }
-function testLevel(){saveLevel();doTest();}
-function playLevel(i){hide('levels-screen');startGame(getLS().levels[i],false);} 
+function testLevel(){saveLevel();doTrans(doTest);}
+function playLevel(i){hide('levels-screen');edIdx=i;doTrans(()=>startGame(getLS().levels[i],false));} 
 
 
 // ── GAME STATE ──
@@ -1388,13 +1559,14 @@ function resetPl(){
   pWaveTrail =[]; 
   playerParticles =[];
   player.partTimer = 0;
+  $('new-best-container').classList.remove('show');
 }
 
 function gRes(){if(gC){gC.width=innerWidth;gC.height=innerHeight;}}
 function stopGame(){gRun=false;if(gAF){cancelAnimationFrame(gAF);gAF=null;}}
 function gKD(e){if(!gRun)return;if(e.code==='Space'||e.code==='ArrowUp'||e.code==='ArrowDown'){if(!jHeld)jumpBuf=0.18; jHeld=true;}if(e.key==='m'||e.key==='M')hbx2=!hbx2;}
 function gKU(e){if(e.code==='Space'||e.code==='ArrowUp'||e.code==='ArrowDown')jHeld=false;}
-function gClick(e){if(!gRun)return;if(won){exitGame();return;}if(dead)return; initAudio(); if(!jHeld)jumpBuf=0.18; jHeld=true;}
+function gClick(e){if(!gRun)return;if(won){doTrans(exitGame);return;}if(dead)return; initAudio(); if(!jHeld)jumpBuf=0.18; jHeld=true;}
 function gMUp(){jHeld=false;}
 function exitGame(){
   stopGame();jHeld=false;
@@ -1473,7 +1645,7 @@ function updateDeath(dt) {
 }
 
 function updateG(dt){
-  gZoom = gC.height / 700;
+  gZoom = gC.height / 760; 
   const logicalW = gC.width / gZoom;
   const logicalH = gC.height / gZoom;
 
@@ -1485,11 +1657,11 @@ function updateG(dt){
       let sum = 0;
       for (let i = 0; i < 2; i++) sum += dataArray[i];
       let avg = sum / 2;
-      let targetPulse = 1 + Math.pow(avg / 255, 3) * 0.9;
+      let targetPulse = 0.85 + Math.pow(avg / 255, 3) * 0.7;
       if (targetPulse > musicPulse) {
           musicPulse = targetPulse;
       } else {
-          musicPulse += (1.0 - musicPulse) * 18 * dt;
+          musicPulse += (0.85 - musicPulse) * 18 * dt;
       }
   } else {
       musicPulse = 1.0;
@@ -1625,6 +1797,9 @@ function updateG(dt){
         let isSlope = false; 
         if (t.kind === 'block') {
             let surfaceY = oy - hh * gravityDir;
+            let totalRot = (obj.rot || 0) + (obj.rotOffset || 0);
+            if (totalRot % 90 !== 0) continue; 
+            
             if (gravityDir === 1) {
                 if (pEdge >= surfaceY && pPrevEdge <= surfaceY + 1) {
                     if (surfaceY < landingY) { landingY = surfaceY; onSlopeThisFrame = isSlope; }
@@ -1709,6 +1884,8 @@ function updateG(dt){
 
         if (t.kind === 'block') {
             let surfaceY = oy - hh * gravityDir;
+            let totalRot = (obj.rot || 0) + (obj.rotOffset || 0);
+            if (totalRot % 90 !== 0) continue;
             if (gravityDir === 1) {
                 if (pEdge >= surfaceY && pPrevEdge <= surfaceY + 1) {
                     if (surfaceY < landingY) landingY = surfaceY;
@@ -1801,6 +1978,8 @@ function updateG(dt){
 
         if (t.kind === 'block') {
             let surfaceY = oy - hh * gravityDir;
+            let totalRot = (obj.rot || 0) + (obj.rotOffset || 0);
+            if (totalRot % 90 !== 0) continue;
             if (gravityDir === 1) {
                 if (pEdge >= surfaceY && pPrevEdge <= surfaceY + 1) {
                     if (surfaceY < landingY) landingY = surfaceY;
@@ -1996,8 +2175,7 @@ function updateG(dt){
         }
     } else if(t.kind==='block'&&t.solid) {
         let totalRot = (obj.rot || 0) + (obj.rotOffset || 0);
-        // Only ignore AABB overlap if it's visually rotated weirdly, else standard check
-        if (totalRot % 90 !== 0) continue; // In 2D, rotating simple solid blocks breaks AABB.
+        if (totalRot % 90 !== 0) continue; 
 
         if (dx < hw + pBlueHW && dy < hh + pBlueHH) { die(); return; }
         if (gravityDir === 1) {
@@ -2115,13 +2293,22 @@ function updateG(dt){
   });
 
   player.wasOnSlope = player.onSlope;
-  if(player.x>=lvEnd){ won=true;show('win-screen','flex');$('win-screen').onclick=exitGame; }
+  if(player.x>=lvEnd && !won){ 
+      won=true;
+      checkNewBest(100);
+      show('win-screen','flex');
+      $('win-screen').onclick=()=>doTrans(exitGame); 
+  }
   const pct=Math.min(100,Math.max(0,(player.x/lvEnd)*100));
   $('prog-fill').style.width=pct+'%'; $('g-pct').textContent=Math.floor(pct)+'%';
 }
 
 function die(){
-  if(dead)return; dead=true; jHeld=false; jPrev=false; jumpBuf=0;
+  if(dead)return; 
+  let pct = Math.floor(Math.min(100, Math.max(0, (player.x / lvEnd) * 100)));
+  checkNewBest(pct);
+  
+  dead=true; jHeld=false; jPrev=false; jumpBuf=0;
   attempts++; 
   shakeTimer = 0.1;
   
@@ -2308,12 +2495,10 @@ function drawG(){
     }
   }
 
+  // --- Pass 1: Glows ---
   curLv.objs.forEach(obj=>{
     const t=td(obj.typeId),sc=obj.scale||1;
-    
-    // D blocks are invisible in game
     if(t.kind==='dblock') return;
-    
     let opac = obj.renderOpac !== undefined ? obj.renderOpac : 1;
     if(opac <= 0.01) return; 
 
@@ -2326,14 +2511,13 @@ function drawG(){
     if(t.kind==='saw') baseRot += performance.now() * 0.005;
 
     let sw=t.w*TILE*sc, sh=t.h*TILE*sc;
-    gCtx2.save();gCtx2.translate(sx,sy);gCtx2.rotate(baseRot);
-    const img=IM[t.img];
-
     let drawSw = sw, drawSh = sh;
+    
     let isOrb = (t.kind === 'orb');
     let isPulseDeco = (t.kind === 'pulse_deco');
     let drawGlow = false;
     let glowAlpha = 0;
+    let gCol = 'transparent', gBlur = 0;
 
     if (isPulseDeco) {
         drawSw *= musicPulse;
@@ -2373,25 +2557,93 @@ function drawG(){
         }
     }
 
+    if (isOrb && drawGlow) {
+        if(obj.typeId === 'pink_orb') gCol = '#FF55FF';
+        else if(obj.typeId === 'blue_orb') gCol = '#00AAFF';
+        else gCol = '#FFD700';
+        gBlur = 30 * glowAlpha * opac;
+    } else if ((t.kind === 'block' || t.kind === 'spike' || t.kind === 'saw') && !t.isDeco) {
+        drawGlow = true;
+        gCol = 'rgba(255, 255, 255, 0.5)';
+        gBlur = 10;
+    }
+
+    if (drawGlow) {
+        gCtx2.save();gCtx2.translate(sx,sy);gCtx2.rotate(baseRot);
+        gCtx2.globalAlpha = isPulseDeco ? (0.5 * opac) : opac;
+        gCtx2.shadowColor = gCol;
+        gCtx2.shadowBlur = gBlur;
+
+        const img=IM[t.img];
+        if (ok(img)) {
+            if (t.isDeco && obj.color) {
+                const tinted = getTinted(img, obj.color, Math.ceil(drawSw), Math.ceil(drawSh));
+                gCtx2.drawImage(tinted, -drawSw/2, -drawSh/2, drawSw, drawSh);
+            } else {
+                gCtx2.drawImage(img,-drawSw/2,-drawSh/2,drawSw,drawSh);
+            }
+        }
+        gCtx2.restore();
+    }
+  });
+
+  // --- Pass 2: Objects ---
+  curLv.objs.forEach(obj=>{
+    const t=td(obj.typeId),sc=obj.scale||1;
+    if(t.kind==='dblock') return;
+    
+    let opac = obj.renderOpac !== undefined ? obj.renderOpac : 1;
+    if(opac <= 0.01) return; 
+
+    const ox = obj.x + (obj.offsetX || 0);
+    const oy = obj.y + (obj.offsetY || 0);
+    const sx=sX(ox),sy=sY(oy); 
+    if(sx<-TILE*4||sx>logicalW+TILE*4)return;
+    
+    let baseRot = ((obj.rot || 0) + (obj.rotOffset || 0)) * Math.PI/180;
+    if(t.kind==='saw') baseRot += performance.now() * 0.005;
+
+    let sw=t.w*TILE*sc, sh=t.h*TILE*sc;
+    gCtx2.save();gCtx2.translate(sx,sy);gCtx2.rotate(baseRot);
+    const img=IM[t.img];
+
+    let drawSw = sw, drawSh = sh;
+    let isOrb = (t.kind === 'orb');
+    let isPulseDeco = (t.kind === 'pulse_deco');
+
+    if (isPulseDeco) {
+        drawSw *= musicPulse;
+        drawSh *= musicPulse;
+    }
+
+    if (isOrb) {
+        let currentPulse = musicPulse;
+        const anim = orbAnims.find(a => a.x === obj.x && a.y === obj.y);
+        
+        if (anim) {
+            let tAnim = anim.t;
+            let clickScale = 1.0;
+            if (tAnim <= 0.12) clickScale = 1.0 + (tAnim / 0.12) * 0.6;
+            else if (tAnim <= 0.21) clickScale = 1.6 - ((tAnim - 0.12) / 0.09) * 0.6;
+            else if (tAnim <= 0.31) clickScale = 1.0;
+            drawSw *= clickScale;
+            drawSh *= clickScale;
+        } else {
+            drawSw *= currentPulse;
+            drawSh *= currentPulse;
+        }
+    }
+
     gCtx2.globalAlpha = isPulseDeco ? (0.5 * opac) : opac;
 
     if(t.kind !== 'trigger' || hbx2) {
       if(ok(img)){
-        if (drawGlow) {
-            if(obj.typeId === 'pink_orb') gCtx2.shadowColor = '#FF55FF';
-            else if(obj.typeId === 'blue_orb') gCtx2.shadowColor = '#00AAFF';
-            else gCtx2.shadowColor = '#FFD700';
-            gCtx2.shadowBlur = 30 * glowAlpha * opac;
-        }
-
         if(t.isDeco && obj.color){
           const tinted = getTinted(img, obj.color, Math.ceil(drawSw), Math.ceil(drawSh));
           gCtx2.drawImage(tinted, -drawSw/2, -drawSh/2, drawSw, drawSh);
         } else {
           gCtx2.drawImage(img,-drawSw/2,-drawSh/2,drawSw,drawSh);
         }
-
-        if (drawGlow) gCtx2.shadowBlur = 0;
         
         if (t.id === 'alpha_trigger' || t.id === 'move_trigger' || t.id === 'rotate_trigger') {
           gCtx2.font = `${32 * sc * camZoom}px Pusab, Arial`;
@@ -2402,8 +2654,8 @@ function drawG(){
           gCtx2.fillStyle = '#FFF';
           let txtX = sw * -0.15;
           let txtY = sh * 0.15;
-          gCtx2.strokeText(o.targetId || 0, txtX, txtY);
-          gCtx2.fillText(o.targetId || 0, txtX, txtY);
+          gCtx2.strokeText(obj.targetId || 0, txtX, txtY);
+          gCtx2.fillText(obj.targetId || 0, txtX, txtY);
         }
       }
       else{gCtx2.fillStyle='#555';gCtx2.fillRect(-drawSw/2,-drawSh/2,drawSw,drawSh);}
@@ -2519,11 +2771,11 @@ function drawG(){
       if(gMode==='ship'){
         const ci=IM.cube, si=IM.ship;
         // Inner Layer (Cube)
-        if(ok(ci)) gCtx2.drawImage(ci, -TILE*0.25, -TILE*0.55, TILE*0.5, TILE*0.5);
-        else {gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE*0.25,-TILE*0.55,TILE*0.5,TILE*0.5);}
+        if(ok(ci)) gCtx2.drawImage(ci, -TILE*0.35, -TILE*0.65, TILE*0.6, TILE*0.6);
+        else {gCtx2.fillStyle='#7DF';gCtx2.fillRect(-TILE*0.35,-TILE*0.65,TILE*0.6,TILE*0.6);}
         // Outer Layer (Ship Shell)
-        if(ok(si)) gCtx2.drawImage(si, -TILE*0.7, -TILE*0.35, TILE*1.4, TILE*0.7);
-        else {gCtx2.fillStyle='rgba(255,140,0,.85)';gCtx2.fillRect(-TILE*0.7,-TILE*0.35,TILE*1.4,TILE*0.7);}
+        if(ok(si)) gCtx2.drawImage(si, -TILE*0.8, -TILE*0.4, TILE*1.6, TILE*0.8);
+        else {gCtx2.fillStyle='rgba(255,140,0,.85)';gCtx2.fillRect(-TILE*0.8,-TILE*0.4,TILE*1.6,TILE*0.8);}
       } else if (gMode==='ufo'){
         const ci=IM.cube, ui=IM.ufo;
         // Inner Layer (Cube)
