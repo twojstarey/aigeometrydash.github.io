@@ -23,6 +23,23 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 #btn-create{width:190px; height:190px; object-fit:contain;}
 #btn-play{width:250px; height:250px; object-fit:contain;}
 
+/* Settings Button */
+#btn-settings {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  margin-left: -50px; /* half of width to center perfectly */
+  width: 100px;
+  height: 100px;
+  object-fit: contain;
+  cursor: pointer;
+  transition: transform 0.15s;
+  z-index: 5;
+}
+#btn-settings:hover {
+  transform: scale(1.1);
+}
+
 #levels-screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;z-index:100;}
 #lvl-bg{position:absolute;inset:0;width:100%;height:100%;}
 #levels-screen .ui{position:relative;z-index:2;width:660px;padding-top:26px;}
@@ -100,6 +117,17 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 #browse-music-btn:hover { filter: brightness(1.15); }
 .music-disclaimer { font-size: 10px; color: #aaa; margin-top: 8px; line-height: 1.3; }
 
+/* Settings Screen */
+#settings-ov {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center; z-index: 400; background: rgba(0,0,0,0.75);
+}
+#settings-box {
+    background: #0c0c28; border: 3px solid #3AF; border-radius: 18px; padding: 26px 34px; min-width: 400px; text-align: center;
+}
+#settings-box h2 {
+    font-size: 32px; color: #FFD700; margin-bottom: 16px; text-shadow: 2px 2px 0 #8B4513; letter-spacing: 2px;
+}
+
 /* GAME UI */
 #game{position:absolute;inset:0;display:none;}
 #game-c{width:100%;height:100%;display:block;}
@@ -107,10 +135,7 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
 #g-back{position:absolute;top:8px;left:7px;padding:6px 12px;background:rgba(0,0,0,.68);border:2px solid #fff;color:#fff;font-size:12px;font-weight:900;border-radius:8px;cursor:pointer;z-index:10;pointer-events:all;}
 #g-title{position:absolute;top:12px;left:75px;font-size:17px;font-weight:900;text-shadow:2px 2px 0 #000;white-space:nowrap;}
 
-/* Custom Progress Bar and Percent */
-#prog-wrap{position:absolute;top:15px;left:50%;transform:translateX(-50%);width:280px;height:12px;background:rgba(0,0,0,0.4);border:2px solid #fff;border-radius:10px;overflow:hidden;box-shadow:0 0 4px #000;}
-#prog-fill{width:0%;height:100%;background:#00FF00;}
-#g-pct{position:absolute;top:32px;left:50%;transform:translateX(-50%);font-size:16px;font-weight:900;color:#fff;-webkit-text-stroke:1px #000;letter-spacing:1px;}
+#g-pct{position:absolute;top:15px;left:50%;transform:translateX(-50%);font-size:16px;font-weight:900;color:#fff;-webkit-text-stroke:0.5px #000;letter-spacing:1px;}
 
 #win-screen{position:absolute;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;flex-direction:column;z-index:50;cursor:pointer;}
 #win-screen h2{font-size:54px;color:#FFD700;text-shadow:4px 4px 0 #8B4513;}
@@ -144,13 +169,13 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
     animation: newBestPop 2.5s forwards;
 }
 #new-best-container img {
-    width: 380px;
+    width: 700px;
 }
 #new-best-pct {
-    font-size: 36px;
+    font-size: 72px;
     color: #fff;
     -webkit-text-stroke: 2px #000;
-    margin-top: -10px;
+    margin-top: -20px;
 }
 
 @keyframes newBestPop {
@@ -176,6 +201,24 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
       <img src="https://i.imgur.com/cHdGmtJ.png" alt="Play Levels" class="menu-btn-img" id="btn-play" onclick="doTrans(showLevels)">
     </div>
   </div>
+  <img src="https://i.imgur.com/ld9EiAw.png" alt="Settings" id="btn-settings" onclick="openSettings()">
+</div>
+
+<div id="settings-ov">
+    <div id="settings-box">
+        <h2>SETTINGS</h2>
+        
+        <div style="margin-bottom: 24px; text-align:left;">
+            <label style="color:#adf; font-size:12px; display:block; margin-bottom:5px;">Editor UI Mode</label>
+            <select id="ui-mode-select" onchange="setUIMode(this.value)" style="width:100%; padding:8px 12px; border:1px solid #3AF; border-radius:8px; background:#223; color:#fff; font-size:14px; font-weight:700; cursor:pointer;">
+                <option value="black">Black</option>
+                <option value="gray">Little White Gray</option>
+                <option value="dark_gray">Gray</option>
+            </select>
+        </div>
+
+        <button class="ep epr" onclick="closeSettings()">CLOSE</button>
+    </div>
 </div>
 
 <div id="levels-screen">
@@ -295,9 +338,6 @@ body{background:#000;font-family:'Pusab',Arial,sans-serif;color:#fff;overflow:hi
   <canvas id="game-c"></canvas>
   <div id="game-ui">
     <div id="g-title">Level</div>
-    <div id="prog-wrap">
-      <div id="prog-fill"></div>
-    </div>
     <div id="g-pct">0%</div>
   </div>
   <button id="g-back" onclick="doTrans(exitGame)">← QUIT</button>
@@ -333,6 +373,7 @@ let tunnelFloor = GROUND_Y;
 let tunnelCeil = CEIL_Y;
 let gravityDir = 1;
 let isMini = false;
+let currentUIMode = 'black';
 
 const SRC={
   bg:'https://i.imgur.com/PsXJdC6.png',
@@ -349,9 +390,30 @@ const SRC={
   block3:'https://i.imgur.com/Godi3T5.png',
   block4:'https://i.imgur.com/vyCfzoT.png',
   block5:'https://i.imgur.com/aJTJ0Ei.png',
+  block6:'https://i.imgur.com/g39yuXu.png',
+  block7:'https://i.imgur.com/KvEJgqk.png',
+  tileblock1:'https://i.imgur.com/vWvrfNK.png',
+  tileblock2:'https://i.imgur.com/HIwZDb9.png',
+  tileblock3:'https://i.imgur.com/BtYZVlL.png',
+  tileblock4:'https://i.imgur.com/3tXi1CE.png',
+  tileblock5:'https://i.imgur.com/QDLiSdU.png',
+  tileblock6:'https://i.imgur.com/YbkoOiJ.png',
   half_block:'https://i.imgur.com/hqIpBij.png',
   small_spk:'https://i.imgur.com/8XzbbU5.png',
   black_spk:'https://i.imgur.com/XRjw8PX.png',
+  saw:'https://i.imgur.com/eRhUsPU.png',
+  deco1:'https://i.imgur.com/Mp27IWo.png',
+  deco2:'https://i.imgur.com/omTYQuo.png',
+  deco3:'https://i.imgur.com/ogm6cns.png',
+  deco4:'https://i.imgur.com/t1rCcWs.png',
+  deco5:'https://i.imgur.com/7y4yUFi.png',
+  pulse_circle:'https://i.imgur.com/kPQU4tP.png',
+  pulse_note:'https://i.imgur.com/ursVgye.png',
+  stick:'https://i.imgur.com/2lFvTKt.png',
+  small_stick:'https://i.imgur.com/1rETvHW.png',
+  orb:'https://i.imgur.com/ysH0qCh.png',
+  pink_orb:'https://i.imgur.com/vjWVHQ2.png',
+  blue_orb:'https://i.imgur.com/Ux3VWbe.png',
   cube_port:'https://i.imgur.com/qVh7VIT.png',
   ship_port:'https://i.imgur.com/zxT7Z80.png',
   ufo_port:'https://i.imgur.com/2oHUMN8.png',
@@ -361,22 +423,11 @@ const SRC={
   norm_port:'https://i.imgur.com/OQkuCn5.png',
   grav_rev_port:'https://i.imgur.com/DDc7zyq.png',
   grav_norm_port:'https://i.imgur.com/naqFZGf.png',
-  orb:'https://i.imgur.com/ysH0qCh.png',
-  pink_orb:'https://i.imgur.com/vjWVHQ2.png',
-  blue_orb:'https://i.imgur.com/Ux3VWbe.png',
-  deco1:'https://i.imgur.com/Mp27IWo.png',
-  deco2:'https://i.imgur.com/omTYQuo.png',
-  deco3:'https://i.imgur.com/ogm6cns.png',
-  deco4:'https://i.imgur.com/t1rCcWs.png',
-  deco5:'https://i.imgur.com/7y4yUFi.png',
-  pulse_circle:'https://i.imgur.com/kPQU4tP.png',
-  pulse_note:'https://i.imgur.com/ursVgye.png',
   bg_trigger:'https://i.imgur.com/zsf7WEb.png',
   ground_trigger:'https://i.imgur.com/55QWy7m.png',
   alpha_trigger:'https://i.imgur.com/sa2bFKP.png',
   move_trigger:'https://i.imgur.com/MpXaj91.png',
-  rotate_trigger:'https://i.imgur.com/RPDc06M.png',
-  saw:'https://i.imgur.com/eRhUsPU.png'
+  rotate_trigger:'https://i.imgur.com/RPDc06M.png'
 };
 const IM={};
 for(const[k,v]of Object.entries(SRC)){const i=new Image();i.crossOrigin='anonymous';i.src=v;IM[k]=i;}
@@ -402,11 +453,19 @@ function getTinted(img, color, pw, ph){
 
 const TYPES=[
   {id:'block1',   lbl:'Block 1',     img:'block1',   w:1,    h:1,   kind:'block', solid:true},
-  {id:'half_block',lbl:'Half\nBlock',img:'half_block',w:1,   h:0.5, kind:'block', solid:true},
   {id:'block2',   lbl:'Block 2\nnoclip',img:'block2',w:1,    h:1,   kind:'block', solid:false},
   {id:'block3',   lbl:'Block 3',     img:'block3',   w:1,    h:1,   kind:'block', solid:true},
   {id:'block4',   lbl:'Block 4',     img:'block4',   w:1,    h:1,   kind:'block', solid:true},
   {id:'block5',   lbl:'Block 5',     img:'block5',   w:1,    h:1,   kind:'block', solid:true},
+  {id:'block6',   lbl:'Block 6',     img:'block6',   w:1,    h:1,   kind:'block', solid:true},
+  {id:'block7',   lbl:'Block 7',     img:'block7',   w:1,    h:1,   kind:'block', solid:true},
+  {id:'tileblock1',lbl:'TileBlock 1',img:'tileblock1',w:1,   h:1,   kind:'block', solid:true},
+  {id:'tileblock2',lbl:'TileBlock 2',img:'tileblock2',w:1,   h:1,   kind:'block', solid:true},
+  {id:'tileblock3',lbl:'TileBlock 3',img:'tileblock3',w:1,   h:1,   kind:'block', solid:true},
+  {id:'tileblock4',lbl:'TileBlock 4\nnoclip',img:'tileblock4',w:1,h:1,kind:'block', solid:false},
+  {id:'tileblock5',lbl:'TileBlock 5',img:'tileblock5',w:1,   h:1,   kind:'block', solid:true},
+  {id:'tileblock6',lbl:'TileBlock 6',img:'tileblock6',w:1,   h:1,   kind:'block', solid:true},
+  {id:'half_block',lbl:'Half\nBlock',img:'half_block',w:1,   h:0.5, kind:'block', solid:true},
   {id:'spike',    lbl:'Spike',       img:'spike',    w:1,    h:1,   kind:'spike', solid:false},
   {id:'small_spk',lbl:'Sm.Spike',    img:'small_spk',w:1,    h:0.5, kind:'spike', solid:false},
   {id:'black_spk',lbl:'Black\nSpk',  img:'black_spk',w:1,    h:0.5, kind:'spike', solid:false},
@@ -416,6 +475,8 @@ const TYPES=[
   {id:'deco3',    lbl:'Deco 3',      img:'deco3',    w:1.3,  h:0.5, kind:'block', solid:false, isDeco:true},
   {id:'deco4',    lbl:'Deco 4',      img:'deco4',    w:3.8,  h:1.3, kind:'block', solid:false, isDeco:true},
   {id:'deco5',    lbl:'Deco 5',      img:'deco5',    w:2.66, h:1.03,kind:'block', solid:false, isDeco:true},
+  {id:'stick',    lbl:'Stick',       img:'stick',    w:0.31, h:1.5, kind:'stick_pulse', solid:false, isDeco:true},
+  {id:'small_stick',lbl:'S. Stick',  img:'small_stick',w:0.31, h:0.8, kind:'stick_pulse', solid:false, isDeco:true},
   {id:'pulse_circle',lbl:'Pulse\nCircle',img:'pulse_circle',w:1,h:1,kind:'pulse_deco',solid:false,isDeco:true},
   {id:'pulse_note',  lbl:'Pulse\nNote',  img:'pulse_note',  w:1,h:1,kind:'pulse_deco',solid:false,isDeco:true},
   {id:'jump_pad', lbl:'Jump Pad',    img:'jump_pad', w:1.2,  h:0.2, kind:'pad',   solid:false},
@@ -474,19 +535,101 @@ function doTrans(fn) {
     }, 100);
 }
 
+function openSettings() {
+    show('settings-ov', 'flex');
+}
+function closeSettings() {
+    hide('settings-ov');
+}
+
 function getLS(){
   try{
     const data = JSON.parse(localStorage.getItem('gd2')||'[]');
     const music = localStorage.getItem('gd2_music') || 'none'; 
-    return {levels: data, music: music};
+    const uiMode = localStorage.getItem('gd2_ui') || 'black';
+    return {levels: data, music: music, ui: uiMode};
   }catch{
-    return {levels:[], music: 'none'};
+    return {levels:[], music: 'none', ui: 'black'};
   }
 }
 function setLS(a){
   localStorage.setItem('gd2',JSON.stringify(a.levels));
   localStorage.setItem('gd2_music', a.music);
+  localStorage.setItem('gd2_ui', a.ui);
 }
+
+function setUIMode(mode) {
+    currentUIMode = mode;
+    const ls = getLS();
+    ls.ui = mode;
+    setLS(ls);
+    applyUIMode();
+}
+
+function applyUIMode() {
+    const isLG = currentUIMode === 'gray';
+    const isDG = currentUIMode === 'dark_gray';
+    
+    let c_edBarBg = isLG ? '#e0e0e0' : isDG ? '#3a3a3a' : '#0e0e0e';
+    let c_edBarBd = isLG ? '#ccc' : isDG ? '#222' : '#333';
+    let c_text    = isLG ? '#000' : '#fff';
+    let c_subText = isLG ? '#333' : isDG ? '#bbb' : '#777';
+    
+    let c_nameBg  = isLG ? '#fff' : isDG ? '#555' : '#1c1c1c';
+    let c_nameBd  = isLG ? '#999' : isDG ? '#777' : '#555';
+    
+    let c_tbBg    = isLG ? '#f5f5f5' : isDG ? '#555' : '#1c1c1c';
+    let c_tbBd    = isLG ? '#aaa' : isDG ? '#777' : '#555';
+    
+    let c_panelBg = isLG ? '#d5d5d5' : isDG ? '#2a2a2a' : '#090909';
+    let c_panelBd = isLG ? '#bbb' : isDG ? '#111' : '#333';
+    
+    let c_obBg    = isLG ? '#ececec' : isDG ? '#444' : '#111828';
+    let c_obBd    = isLG ? '#999' : isDG ? '#666' : '#444';
+    let c_obText  = isLG ? '#333' : isDG ? '#eee' : '#999';
+
+    const edBar = $('ed-bar');
+    if (edBar) {
+        edBar.style.background = c_edBarBg;
+        edBar.style.borderBottom = '2px solid ' + c_edBarBd;
+        edBar.style.color = c_text; 
+    }
+    const nameLabel = edBar ? edBar.querySelector('span') : null;
+    if (nameLabel) nameLabel.style.color = c_subText;
+    
+    const edName = $('ed-name');
+    if (edName) {
+        edName.style.background = c_nameBg;
+        edName.style.borderColor = c_nameBd;
+        edName.style.color = c_text;
+    }
+    
+    document.querySelectorAll('.tb').forEach(tb => {
+        if (!tb.classList.contains('on')) {
+            tb.style.background = c_tbBg;
+            if(tb.innerText.includes('Q') || tb.innerText.includes('E') || (tb.id && tb.id.startsWith('tool-'))) {
+                 tb.style.borderColor = c_tbBd;
+                 tb.style.color = c_text;
+            }
+        }
+    });
+    
+    const edPanel = $('ed-panel');
+    if (edPanel) {
+        edPanel.style.background = c_panelBg;
+        edPanel.style.borderTop = '2px solid ' + c_panelBd;
+    }
+    
+    document.querySelectorAll('.ob').forEach(ob => {
+        if (!ob.classList.contains('on')) {
+            ob.style.background = c_obBg;
+            ob.style.borderColor = c_obBd;
+        }
+        const span = ob.querySelector('span');
+        if(span) span.style.color = c_obText;
+    });
+}
+
 function $(x){return document.getElementById(x);}
 function show(id,d='block'){$(id).style.display=d;}
 function hide(id){$(id).style.display='none';}
@@ -565,8 +708,8 @@ function setMusic(trackId) {
         audioPlayer.src = ''; 
     }
 
-    const {levels} = getLS(); 
-    setLS({levels: levels, music: currentMusic});
+    const ls = getLS(); 
+    setLS({levels: ls.levels, music: currentMusic, ui: ls.ui});
 }
 
 function drawBg(ctx,W,H,camX,camY, overrideColor=null, overrideOpac=1){
@@ -662,7 +805,7 @@ function renderList(){
       </div>
     </div>`).join('');
 }
-function delLevel(i){if(!confirm('Delete?'))return;const {levels, music}=getLS();levels.splice(i,1);setLS({levels: levels, music: music});renderList();}
+function delLevel(i){if(!confirm('Delete?'))return;const ls=getLS();ls.levels.splice(i,1);setLS(ls);renderList();}
 
 function exportLevel(i) {
     const { levels } = getLS();
@@ -692,9 +835,9 @@ function handleImportLevel(event) {
                 throw new Error("Invalid level format.");
             }
             
-            const { levels, music } = getLS();
-            levels.push(importedLevel);
-            setLS({ levels: levels, music: music });
+            const ls = getLS();
+            ls.levels.push(importedLevel);
+            setLS(ls);
             renderList();
             alert("Level imported successfully!");
         } catch (err) {
@@ -706,7 +849,7 @@ function handleImportLevel(event) {
     reader.readAsText(file);
 }
 
-function checkNewBest(pct) {
+function checkNewBest(pct, showPopup = true) {
     if (fromEd) return;
     if (pct > (curLv.best || 0)) {
         curLv.best = pct;
@@ -715,11 +858,13 @@ function checkNewBest(pct) {
             ls.levels[edIdx].best = pct;
             setLS(ls);
         }
-        const nb = $('new-best-container');
-        $('new-best-pct').textContent = pct + '%';
-        nb.classList.remove('show');
-        void nb.offsetWidth; 
-        nb.classList.add('show');
+        if (showPopup) {
+            const nb = $('new-best-container');
+            $('new-best-pct').textContent = pct + '%';
+            nb.classList.remove('show');
+            void nb.offsetWidth; 
+            nb.classList.add('show');
+        }
     }
 }
 
@@ -781,30 +926,88 @@ function openEditor(){
   selScale=1;szBase=null;
   undoStack=[]; redoStack=[]; 
   setTool('place');buildPanel();initEd();
+  applyUIMode();
   edRun=true;requestAnimationFrame(edLoop);
 
-  const {music} = getLS();
-  currentMusic = music;
+  const ls = getLS();
+  currentMusic = ls.music;
   const musicSelect = $('music-select');
   if (musicSelect) {
+    let exists = false;
+    Array.from(musicSelect.options).forEach(opt => {
+        if (opt.value === currentMusic) exists = true;
+    });
+    if (!exists && currentMusic !== 'none') {
+        const opt = document.createElement('option');
+        opt.value = currentMusic;
+        opt.textContent = `Saved File: ${currentMusic} (Re-upload needed)`;
+        musicSelect.appendChild(opt);
+    }
     musicSelect.value = currentMusic;
     setMusic(currentMusic); 
   }
 }
 function buildPanel(){
   const p=$('ed-panel');
-  p.innerHTML=TYPES.map((t,i)=>`
-    <div class="ob ${i===0?'on':''}" id="ob-${t.id}" onclick="pickType('${t.id}')">
-      <img src="${SRC[t.img]}" alt=""><span>${t.lbl.replace(/\n/g,'<br>')}</span>
-    </div>`).join('');
+  const isLG = currentUIMode === 'gray';
+  const isDG = currentUIMode === 'dark_gray';
+  const bg = isLG ? '#ececec' : isDG ? '#444' : '#111828';
+  const bc = isLG ? '#999' : isDG ? '#666' : '#444';
+  const tc = isLG ? '#333' : isDG ? '#eee' : '#999';
+
+  p.innerHTML=TYPES.map((t,i)=>{
+    const isOn = (i===0);
+    const curBg = isOn ? '#1e1400' : bg;
+    const curBc = isOn ? '#FFD700' : bc;
+    return `
+    <div class="ob ${isOn?'on':''}" id="ob-${t.id}" onclick="pickType('${t.id}')"
+         style="background:${curBg}; border-color:${curBc};"
+         onmouseover="if(!this.classList.contains('on')) this.style.borderColor='#FFD700'"
+         onmouseout="if(!this.classList.contains('on')) this.style.borderColor='${bc}'">
+      <img src="${SRC[t.img]}" alt=""><span style="color:${tc}">${t.lbl.replace(/\n/g,'<br>')}</span>
+    </div>`;
+  }).join('');
 }
 function pickType(id){
   selType=TYPES.find(t=>t.id===id);
-  document.querySelectorAll('.ob').forEach(b=>b.classList.remove('on'));
-  $('ob-'+id).classList.add('on');setTool('place');
+  const isLG = currentUIMode === 'gray';
+  const isDG = currentUIMode === 'dark_gray';
+  const bg = isLG ? '#ececec' : isDG ? '#444' : '#111828';
+  const bc = isLG ? '#999' : isDG ? '#666' : '#444';
+
+  document.querySelectorAll('.ob').forEach(b=>{
+      b.classList.remove('on');
+      b.style.background = bg;
+      b.style.borderColor = bc;
+  });
+  const active = $('ob-'+id);
+  if(active){
+      active.classList.add('on');
+      active.style.borderColor = '#FFD700';
+      active.style.background = '#1e1400';
+  }
+  setTool('place');
 }
 function setTool(t){
-  edTool=t;['place','select','size'].forEach(n=>{const e=$('tool-'+n);if(e)e.classList.toggle('on',n===t);});
+  edTool=t;
+  ['place','select','size'].forEach(n=>{
+    const e=$('tool-'+n);
+    if(e){
+        const isOn = (n===t);
+        e.classList.toggle('on', isOn);
+        const isLG = currentUIMode === 'gray';
+        const isDG = currentUIMode === 'dark_gray';
+        if(isOn) {
+            e.style.borderColor='#FFD700'; 
+            e.style.background='#1e1200'; 
+            e.style.color='#FFD700';
+        } else {
+            e.style.background = isLG ? '#f5f5f5' : isDG ? '#555' : '#1c1c1c';
+            e.style.borderColor = isLG ? '#aaa' : isDG ? '#777' : '#555';
+            e.style.color = isLG ? '#000' : '#fff';
+        }
+    }
+  });
   updSzLbl();
 }
 function updSzLbl(){
@@ -1382,7 +1585,25 @@ function drawEd(){
     const img=IM[t.img];
     
     if(ok(img)) {
-      if (t.isDeco && o.color) {
+      if (t.kind === 'stick_pulse') {
+          // Stick itself NEVER gets tinted
+          edCtx.drawImage(img, -sw/2, -sh/2, sw, sh);
+          
+          let pImg = IM.pulse_circle;
+          if(ok(pImg)) {
+              let cw = TILE * 0.31 * sc * camZoom; 
+              let ch = TILE * 0.31 * sc * camZoom;
+              let cy = -sh/2 - (TILE * 0.20 * sc * camZoom); // Moved significantly higher to sit at the tip
+              edCtx.globalAlpha = 0.5;
+              if (o.color) {
+                  const tCirc = getTinted(pImg, o.color, Math.ceil(cw), Math.ceil(ch));
+                  edCtx.drawImage(tCirc, -cw/2, cy - ch/2, cw, ch);
+              } else {
+                  edCtx.drawImage(pImg, -cw/2, cy - ch/2, cw, ch);
+              }
+              edCtx.globalAlpha = 1.0;
+          }
+      } else if (t.isDeco && o.color) {
         const tinted = getTinted(img, o.color, Math.ceil(sw), Math.ceil(sh));
         edCtx.drawImage(tinted, -sw/2, -sh/2, sw, sh);
       } else if (t.kind === 'dblock') {
@@ -1455,9 +1676,9 @@ function drawEd(){
 function saveLevel(){
   const name=$('ed-name').value.trim()||'My Level';
   const lv={name,bg:bgColor,gr:groundColor,objs:edObjs.map(o=>({...o}))};
-  const {levels, music} = getLS(); 
+  const {levels, music, ui} = getLS(); 
   if(edIdx>=0)levels[edIdx]=lv;else{levels.push(lv);edIdx=levels.length-1;}
-  setLS({levels: levels, music: music}); 
+  setLS({levels: levels, music: music, ui: ui}); 
   const el=document.createElement('div');el.textContent='Saved!';
   Object.assign(el.style,{position:'fixed',top:'18px',left:'50%',transform:'translateX(-50%)',background:'#2ECC40',color:'#fff',padding:'8px 24px',borderRadius:'10px',fontWeight:900,fontSize:'15px',zIndex:9999,pointerEvents:'none'});
   document.body.appendChild(el);setTimeout(()=>el.remove(),1400);
@@ -1655,14 +1876,18 @@ function updateG(dt){
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
       analyser.getByteFrequencyData(dataArray);
       let sum = 0;
-      for (let i = 0; i < 2; i++) sum += dataArray[i];
-      let avg = sum / 2;
-      let targetPulse = 0.85 + Math.pow(avg / 255, 3) * 0.7;
+      for (let i = 0; i < 3; i++) sum += dataArray[i];
+      let avg = sum / 3;
+      
+      let intensity = Math.pow(avg / 255, 2);
+      let targetPulse = 0.30 + (intensity * 0.74); 
+      
       if (targetPulse > musicPulse) {
           musicPulse = targetPulse;
       } else {
-          musicPulse += (0.85 - musicPulse) * 18 * dt;
+          musicPulse += (targetPulse - musicPulse) * 12 * dt; 
       }
+      musicPulse = Math.max(0.30, Math.min(1.04, musicPulse));
   } else {
       musicPulse = 1.0;
   }
@@ -2039,7 +2264,7 @@ function updateG(dt){
   // --- Collision and Interaction Loop ---
   for(const obj of curLv.objs){
     const t=td(obj.typeId),sc=obj.scale||1;
-    if (t.isDeco || t.kind === 'pulse_deco') continue; 
+    if (t.isDeco || t.kind === 'pulse_deco' || t.kind === 'stick_pulse') continue; 
     
     const ox = obj.x + (obj.offsetX || 0);
     const oy = obj.y + (obj.offsetY || 0);
@@ -2208,7 +2433,7 @@ function updateG(dt){
         if (obj.typeId === 'orb') {
             player.vy = (isMini ? -975 : JUMP_V) * gravityDir; 
         } else if (obj.typeId === 'pink_orb') {
-            player.vy = (isMini ? -819 : -1180) * gravityDir; 
+            player.vy = (isMini ? -819 : -1000) * gravityDir; 
         } else if (obj.typeId === 'blue_orb') {
             gravityDir *= -1;
             player.vy = (isMini ? -550 : -700) * gravityDir; 
@@ -2295,18 +2520,18 @@ function updateG(dt){
   player.wasOnSlope = player.onSlope;
   if(player.x>=lvEnd && !won){ 
       won=true;
-      checkNewBest(100);
+      checkNewBest(100, false);
       show('win-screen','flex');
       $('win-screen').onclick=()=>doTrans(exitGame); 
   }
   const pct=Math.min(100,Math.max(0,(player.x/lvEnd)*100));
-  $('prog-fill').style.width=pct+'%'; $('g-pct').textContent=Math.floor(pct)+'%';
+  $('g-pct').textContent=Math.floor(pct)+'%';
 }
 
 function die(){
   if(dead)return; 
   let pct = Math.floor(Math.min(100, Math.max(0, (player.x / lvEnd) * 100)));
-  checkNewBest(pct);
+  checkNewBest(pct, true);
   
   dead=true; jHeld=false; jPrev=false; jumpBuf=0;
   attempts++; 
@@ -2340,8 +2565,10 @@ function die(){
     else {ox.fillStyle='rgba(255,140,0,.85)';ox.fillRect(-TILE*0.7,-TILE*0.35,TILE*1.4,TILE*0.7);}
   } else if (gMode==='ufo'){
     const ci=IM.cube, ui=IM.ufo;
+    // Inner Layer (Cube)
     if(ok(ci)) ox.drawImage(ci, -TILE*0.25, -TILE*0.35, TILE*0.5, TILE*0.5);
     else {ox.fillStyle='#7DF';ox.fillRect(-TILE*0.25,-TILE*0.35,TILE*0.5,TILE*0.5);}
+    // Outer Layer (UFO Shell)
     if(ok(ui)) ox.drawImage(ui, -TILE*0.7, -TILE*0.55, TILE*1.4, TILE*1.1);
     else {ox.fillStyle='#aaa';ox.beginPath();ox.arc(0,0,TILE*0.5,0,Math.PI*2);ox.fill();}
   } else if (gMode==='ball'){
@@ -2515,6 +2742,7 @@ function drawG(){
     
     let isOrb = (t.kind === 'orb');
     let isPulseDeco = (t.kind === 'pulse_deco');
+    let isStickPulse = (t.kind === 'stick_pulse');
     let drawGlow = false;
     let glowAlpha = 0;
     let gCol = 'transparent', gBlur = 0;
@@ -2525,7 +2753,8 @@ function drawG(){
     }
 
     if (isOrb) {
-        let currentPulse = musicPulse;
+        let orbPulse = 1.0 + Math.max(0, (musicPulse - 0.30) / 0.74) * 0.25;
+
         const anim = orbAnims.find(a => a.x === obj.x && a.y === obj.y);
         
         if (anim) {
@@ -2552,8 +2781,8 @@ function drawG(){
                 drawGlow = true;
             }
         } else {
-            drawSw *= currentPulse;
-            drawSh *= currentPulse;
+            drawSw *= orbPulse;
+            drawSh *= orbPulse;
         }
     }
 
@@ -2562,7 +2791,7 @@ function drawG(){
         else if(obj.typeId === 'blue_orb') gCol = '#00AAFF';
         else gCol = '#FFD700';
         gBlur = 30 * glowAlpha * opac;
-    } else if ((t.kind === 'block' || t.kind === 'spike' || t.kind === 'saw') && !t.isDeco) {
+    } else if ((t.kind === 'block' || t.kind === 'spike' || t.kind === 'saw') && !t.isDeco && !isStickPulse) {
         drawGlow = true;
         gCol = 'rgba(255, 255, 255, 0.5)';
         gBlur = 10;
@@ -2610,6 +2839,7 @@ function drawG(){
     let drawSw = sw, drawSh = sh;
     let isOrb = (t.kind === 'orb');
     let isPulseDeco = (t.kind === 'pulse_deco');
+    let isStickPulse = (t.kind === 'stick_pulse');
 
     if (isPulseDeco) {
         drawSw *= musicPulse;
@@ -2617,7 +2847,8 @@ function drawG(){
     }
 
     if (isOrb) {
-        let currentPulse = musicPulse;
+        let orbPulse = 1.0 + Math.max(0, (musicPulse - 0.30) / 0.74) * 0.25;
+
         const anim = orbAnims.find(a => a.x === obj.x && a.y === obj.y);
         
         if (anim) {
@@ -2629,8 +2860,8 @@ function drawG(){
             drawSw *= clickScale;
             drawSh *= clickScale;
         } else {
-            drawSw *= currentPulse;
-            drawSh *= currentPulse;
+            drawSw *= orbPulse;
+            drawSh *= orbPulse;
         }
     }
 
@@ -2638,7 +2869,26 @@ function drawG(){
 
     if(t.kind !== 'trigger' || hbx2) {
       if(ok(img)){
-        if(t.isDeco && obj.color){
+        if(isStickPulse){
+            // Stick itself NEVER gets tinted
+            gCtx2.drawImage(img, -sw/2, -sh/2, sw, sh);
+            
+            let pImg = IM.pulse_circle;
+            if(ok(pImg)) {
+                let cw = TILE * 0.31 * sc * musicPulse;
+                let ch = TILE * 0.31 * sc * musicPulse;
+                let cy = -sh/2 - (TILE * 0.2 * sc); // Moved significantly higher to sit at the tip
+                
+                gCtx2.globalAlpha = 0.5 * opac;
+                if(obj.color) {
+                    const tCirc = getTinted(pImg, obj.color, Math.ceil(cw), Math.ceil(ch));
+                    gCtx2.drawImage(tCirc, -cw/2, cy - ch/2, cw, ch);
+                } else {
+                    gCtx2.drawImage(pImg, -cw/2, cy - ch/2, cw, ch);
+                }
+                gCtx2.globalAlpha = opac;
+            }
+        } else if(t.isDeco && obj.color){
           const tinted = getTinted(img, obj.color, Math.ceil(drawSw), Math.ceil(drawSh));
           gCtx2.drawImage(tinted, -drawSw/2, -drawSh/2, drawSw, drawSh);
         } else {
@@ -2847,13 +3097,27 @@ function drawG(){
 }
 
 window.addEventListener('load', () => {
-    const {levels, music} = getLS();
+    const {levels, music, ui} = getLS();
     currentMusic = music;
+    currentUIMode = ui || 'black';
     const musicSelect = $('music-select');
     if (musicSelect) {
+        let exists = false;
+        Array.from(musicSelect.options).forEach(opt => {
+            if (opt.value === currentMusic) exists = true;
+        });
+        if (!exists && currentMusic !== 'none') {
+            const opt = document.createElement('option');
+            opt.value = currentMusic;
+            opt.textContent = `Saved File: ${currentMusic} (Re-upload needed)`;
+            musicSelect.appendChild(opt);
+        }
         musicSelect.value = currentMusic;
         setMusic(currentMusic); 
     }
+    const uiSelect = $('ui-mode-select');
+    if (uiSelect) uiSelect.value = currentUIMode;
+    applyUIMode();
     showMenu();
 });
 </script>
