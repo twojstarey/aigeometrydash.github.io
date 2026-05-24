@@ -409,8 +409,8 @@ const TILE=64, GROUND_Y=9*TILE;
 const CEIL_Y = -3*TILE; 
 const SHIP_TUNNEL_H = GROUND_Y - CEIL_Y; 
 const GROUND_TS=250;
-const PLAYER_SPD=690, GRAVITY=5700, JUMP_V=-1200;
-const SHIP_GRAV=2400, SHIP_THRUST=-3500, SHIP_MAXVY=880;
+const PLAYER_SPD=690, GRAVITY=5700, JUMP_V=-1180;
+const SHIP_GRAV=1800, SHIP_THRUST=-2800, SHIP_MAXVY=780;
 const BG_PAR=0.12;
 const BG_TS=1400;
 const tintCache = new Map();
@@ -421,7 +421,9 @@ let shipTransDir = 1;
 const TRANS_DUR = 0.55;  
 let prevGMode = 'cube';  
 let playTrail =[];
-let pWaveTrail =[]; 
+let pWaveTrail =[];
+let shipTrail =[];
+let shipFireParticles =[];
 let tunnelFloor = GROUND_Y;
 let tunnelCeil = CEIL_Y;
 let gravityDir = 1;
@@ -466,7 +468,7 @@ const SRC={
   small_stick:'https://i.imgur.com/1rETvHW.png',
   orb:'https://i.imgur.com/ysH0qCh.png',
   pink_orb:'https://i.imgur.com/vjWVHQ2.png',
-  blue_orb:'https://i.imgur.com/Ux3VWbe.png',
+
   cube_port:'https://i.imgur.com/qVh7VIT.png',
   ship_port:'https://i.imgur.com/zxT7Z80.png',
   ufo_port:'https://i.imgur.com/2oHUMN8.png',
@@ -535,7 +537,6 @@ const TYPES=[
   {id:'jump_pad', lbl:'Jump Pad',    img:'jump_pad', w:1.2,  h:0.2, kind:'pad',   solid:false},
   {id:'orb',      lbl:'Y. Orb',      img:'orb',      w:1,    h:1,   kind:'orb',   solid:false},
   {id:'pink_orb', lbl:'P. Orb',      img:'pink_orb', w:1,    h:1,   kind:'orb',   solid:false},
-  {id:'blue_orb', lbl:'B. Orb',      img:'blue_orb', w:1,    h:1,   kind:'orb',   solid:false},
   {id:'cube_port',lbl:'Cube\nPortal',img:'cube_port',w:1.4,  h:2.7, kind:'pcube', solid:false},
   {id:'ship_port',lbl:'Ship\nPortal',img:'ship_port',w:1.4,  h:2.7, kind:'pship', solid:false},
   {id:'ufo_port', lbl:'UFO\nPortal', img:'ufo_port', w:1.4,  h:2.7, kind:'pufo',  solid:false},
@@ -1862,6 +1863,8 @@ function resetPl(){
   orbAnims=[]; padEffects=[];
   pWaveTrail =[]; 
   playerParticles =[];
+  shipTrail =[];
+  shipFireParticles =[];
   player.partTimer = 0;
   $('new-best-container').classList.remove('show');
 }
@@ -2218,8 +2221,14 @@ function updateG(dt){
         }
     }
 
-    const tgt = Math.max(-70, Math.min(70, player.vy * 0.04));
-    player.rot += (tgt - player.rot) * 15 * dt;
+    // Procedural rotation: spring physics driven by vertical velocity
+    const tgt = Math.max(-54.5, Math.min(54.5, player.vy * (54.5 / SHIP_MAXVY)));
+    player.rotV = player.rotV || 0;
+    const stiffness = 420;   // how hard it pulls toward target
+    const damping   = 28;    // how much it resists oscillation
+    const rotErr = tgt - player.rot;
+    player.rotV += (rotErr * stiffness - player.rotV * damping) * dt;
+    player.rot  += player.rotV * dt;
   } else if (gMode === 'ufo') {
     let curGrav = isMini ? 3800 : 2700;
     player.vy += curGrav * gravityDir * dt;
@@ -2581,9 +2590,6 @@ function updateG(dt){
             player.vy = (isMini ? -850 : JUMP_V) * gravityDir; 
         } else if (obj.typeId === 'pink_orb') {
             player.vy = (isMini ? -735 : -1000) * gravityDir; 
-        } else if (obj.typeId === 'blue_orb') {
-            gravityDir *= -1;
-            player.vy = (isMini ? -500 : -650) * gravityDir; 
         }
         player.onGround=false; obj.orbUsed=true;
         
@@ -2623,44 +2629,88 @@ function updateG(dt){
   // Update Trail Particles
   if (!dead) {
       player.partTimer = (player.partTimer || 0) + dt;
-      let shouldSpawn = (gMode === 'cube' && player.onGround) || (gMode === 'ship' && jHeld);
-      
-      if (shouldSpawn && player.partTimer > 0.08) {
-          player.partTimer = 0;
-          let numP = 1 + Math.floor(Math.random() * 2); 
-          for(let i=0; i<numP; i++) {
-              let spawnY = player.y + (pLandHH - 4) * gravityDir;
-              let spawnX = player.x - TILE*0.4 * pScale;
-              
-              let pVx = (Math.random() - 0.5) * 500; 
-              let pVy = (Math.random() * -450 - 150) * gravityDir; 
-              
-              if (gMode === 'ship') {
-                  spawnY = player.y + (TILE * 0.3 * pScale) * gravityDir;
-                  spawnX = player.x - TILE * 0.6 * pScale;
-                  pVy = (Math.random() * 500 - 250) + (player.vy * 0.3); 
-              }
+      let shouldSpawnCube = (gMode === 'cube' && player.onGround);
 
+      // --- Cube ground particles (cyan, unchanged) ---
+      if (shouldSpawnCube && player.partTimer > 0.08) {
+          player.partTimer = 0;
+          let numP = 1 + Math.floor(Math.random() * 2);
+          for(let i=0; i<numP; i++) {
               playerParticles.push({
-                  x: spawnX + (Math.random() - 0.5) * 10,
-                  y: spawnY,
-                  vx: pVx,
-                  vy: pVy,
+                  x: player.x - TILE*0.4*pScale + (Math.random()-0.5)*10,
+                  y: player.y + (pLandHH - 4) * gravityDir,
+                  vx: (Math.random()-0.5)*500,
+                  vy: (Math.random()*-450 - 150)*gravityDir,
                   life: 1.0,
-                  size: TILE * (0.08 + Math.random() * 0.12) * pScale,
-                  rot: Math.random() * 360,
-                  rotV: (Math.random() - 0.5) * 800,
-                  col: Math.random() > 0.5 ? '#00FFFF' : '#66FFFF'
+                  size: TILE*(0.08+Math.random()*0.12)*pScale,
+                  rot: Math.random()*360,
+                  rotV: (Math.random()-0.5)*800,
+                  col: Math.random()>0.5?'#00FFFF':'#66FFFF'
               });
           }
       }
+
+      // --- Ship: cyan trail + fire particles ---
+      if (gMode === 'ship') {
+          const rotRad = player.rot * Math.PI / 180;
+          // butt = left edge of ship hull, shifted down slightly
+          const buttOffX = -TILE * 0.70 * pScale;
+          const buttOffY =  TILE * 0.10 * pScale;  // slightly down
+          const bx = player.x + Math.cos(rotRad)*buttOffX - Math.sin(rotRad)*buttOffY;
+          const by = player.y + Math.sin(rotRad)*buttOffX + Math.cos(rotRad)*buttOffY;
+
+          // Cyan trail: record butt position every frame
+          shipTrail = shipTrail || [];
+          shipTrail.push({x: bx, y: by});
+          if (shipTrail.length > 22) shipTrail.shift();
+
+          // Fire particles — slow drifting sparks, wide spread, not a line
+          player.shipFireTimer = (player.shipFireTimer || 0) + dt;
+          if (player.shipFireTimer > 0.025) {
+              player.shipFireTimer = 0;
+              const numFire = 4 + Math.floor(Math.random() * 4);
+              for (let i = 0; i < numFire; i++) {
+                  const speed = 30 + Math.random() * 60;
+                  const pvx = -(speed) + (Math.random()-0.5)*10;
+                  const pvy = (Math.random()-0.5) * 6;
+                  shipFireParticles = shipFireParticles || [];
+                  const fireColors = ['#FF88CC','#FFFFFF','#FFB0E0','#FF66AA','#FFD0EE'];
+                  shipFireParticles.push({
+                      x: bx + (Math.random()-0.5)*TILE*0.5,
+                      y: by + (Math.random()-0.5)*TILE*0.2,
+                      vx: pvx, vy: pvy,
+                      life: 1.0,
+                      size: TILE * (0.01 + Math.random() * 0.09) * pScale,
+                      rot: Math.random() * 360,
+                      rotV: (Math.random()-0.5) * 500,
+                      col: fireColors[Math.floor(Math.random() * fireColors.length)]
+                  });
+              }
+          }
+      } else {
+          shipTrail = [];
+          shipFireParticles = [];
+          player.shipFireTimer = 0;
+      }
   }
-  
+
+  // Advance cube particles
   playerParticles = playerParticles.filter(p => {
       p.x += p.vx * dt;
       p.y += p.vy * dt;
       p.rot += p.rotV * dt;
-      p.life -= dt * 6.0; 
+      p.life -= dt * 6.0;
+      return p.life > 0;
+  });
+
+  // Advance fire particles — tumble and fade like cube sparks
+  shipFireParticles = (shipFireParticles || []).filter(p => {
+      p.x  += p.vx * dt;
+      p.y  += p.vy * dt;
+      p.rot = (p.rot || 0) + (p.rotV || 0) * dt;
+      p.vx *= Math.pow(0.75, dt);
+      p.vy *= Math.pow(0.08, dt);
+      p.life -= dt * 4.5;
       return p.life > 0;
   });
 
@@ -2941,7 +2991,6 @@ function drawG(){
 
     if (isOrb && drawGlow) {
         if(obj.typeId === 'pink_orb') gCol = '#FF55FF';
-        else if(obj.typeId === 'blue_orb') gCol = '#00AAFF';
         else gCol = '#FFD700';
         gBlur = 30 * glowAlpha * opac;
     } else if ((t.kind === 'block' || t.kind === 'spike' || t.kind === 'saw') && !t.isDeco && !isStickPulse) {
@@ -3072,7 +3121,6 @@ function drawG(){
         gCtx2.globalAlpha = (1 - ringP) * 0.8 * opac; 
         gCtx2.save(); gCtx2.scale(ringScale, ringScale);
         if(anim.type === 'pink_orb') gCtx2.strokeStyle = '#FF55FF';
-        else if(anim.type === 'blue_orb') gCtx2.strokeStyle = '#00AAFF';
         else gCtx2.strokeStyle = '#FFD700';
         gCtx2.lineWidth = 4;
         gCtx2.beginPath(); gCtx2.arc(0,0,sw*0.55,0,Math.PI*2); gCtx2.stroke();
@@ -3151,7 +3199,7 @@ function drawG(){
       gCtx2.restore();
   });
   
-  // Render Player Trail Particles
+  // Render Player Trail Particles (cube - cyan squares)
   playerParticles.forEach(p => {
       gCtx2.save();
       gCtx2.globalAlpha = Math.max(0, p.life);
@@ -3159,6 +3207,54 @@ function drawG(){
       gCtx2.translate(sX(p.x), sY(p.y));
       gCtx2.rotate(p.rot * Math.PI / 180);
       gCtx2.fillRect(-p.size/2, -p.size/2, p.size, p.size);
+      gCtx2.restore();
+  });
+
+  // Render Ship Cyan Trail — flat rectangle ribbon, fades at tail end
+  if (shipTrail && shipTrail.length > 1) {
+      const n = shipTrail.length;
+      // fixed half-height in world units (thin flat bar)
+      const fixedHH = 4.0 * gZoom;   // height of trail ribbon
+      for (let i = 1; i < n; i++) {
+          const frac  = i / (n - 1); // 0=tail end, 1=ship butt
+          const alpha = Math.pow(frac, 1.4) * 0.88;
+          const p0 = shipTrail[i-1], p1 = shipTrail[i];
+          const sx0 = sX(p0.x), sy0 = sY(p0.y);
+          const sx1 = sX(p1.x), sy1 = sY(p1.y);
+          const dx = sx1 - sx0, dy = sy1 - sy0;
+          const len = Math.sqrt(dx*dx + dy*dy) || 0.001;
+          // normal perpendicular to travel direction
+          const nx = -dy/len, ny = dx/len;
+          const hw = fixedHH; // constant = true rectangle, no taper
+          gCtx2.save();
+          gCtx2.globalAlpha = alpha;
+          gCtx2.fillStyle = '#00CCFF';
+          gCtx2.shadowColor = '#00EEFF';
+          gCtx2.shadowBlur = 5 * frac;
+          gCtx2.beginPath();
+          gCtx2.moveTo(sx0 + nx*hw, sy0 + ny*hw);
+          gCtx2.lineTo(sx1 + nx*hw, sy1 + ny*hw);
+          gCtx2.lineTo(sx1 - nx*hw, sy1 - ny*hw);
+          gCtx2.lineTo(sx0 - nx*hw, sy0 - ny*hw);
+          gCtx2.closePath();
+          gCtx2.fill();
+          gCtx2.restore();
+      }
+  }
+
+  // Render Ship Fire Particles — drawn AFTER trail so they appear on top/outer
+  (shipFireParticles || []).forEach(p => {
+      const alpha = Math.max(0, p.life * 0.95);
+      if (alpha < 0.01) return;
+      gCtx2.save();
+      gCtx2.globalAlpha = alpha;
+      gCtx2.fillStyle = p.col;
+      gCtx2.shadowColor = p.col;
+      gCtx2.shadowBlur = 12;
+      gCtx2.translate(sX(p.x), sY(p.y));
+      gCtx2.rotate((p.rot || 0) * Math.PI / 180);
+      const ss = p.size * gZoom;
+      gCtx2.fillRect(-ss/2, -ss/2, ss, ss);
       gCtx2.restore();
   });
 
